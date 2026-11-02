@@ -1,0 +1,299 @@
+from pathlib import Path
+import subprocess
+from uuid import uuid4
+
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import select
+
+from backend.api.types import Guardrails, ScanRequest
+from backend.config import settings
+from backend.db.database import session_scope
+from backend.db.schema import (
+    Clip,
+    GuardrailSettings,
+    JobEvent,
+    Player,
+    ScanRun,
+    StagedMove,
+    Watchlist,
+)
+from backend.services.clips import inspect_video, local_path, prepare_clip
+from backend.services.state import get_guardrails, get_league
+from backend.worker.scan import enqueue
+from backend.providers.sleeper import ProviderError, SleeperLeagueProvider
+from pydantic import BaseModel, Field
+
+router = APIRouter(prefix="/api")
+sleeper = SleeperLeagueProvider()
+
+
+class SleeperRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    season: int | None = Field(None, ge=2017, le=2100)
+
+
+@router.post("/sleeper/connect")
+def sleeper_connect(value: SleeperRequest):
+    try:
+        return sleeper.connect(value.username, value.season)
+    except ProviderError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/sleeper/leagues/{league_id}")
+def sleeper_league(league_id: str):
+    try:
+        return sleeper.league(league_id)
+    except ProviderError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/bootstrap")
+def bootstrap():
+    with session_scope() as s:
+        watch = [r.player_id for r in s.scalars(select(Watchlist))]
+    return {
+        "league": get_league(),
+        "settings": get_guardrails().model_dump(),
+        "watchlist": watch,
+        "models_mode": "mock" if settings.mock_models else "live",
+        "demo_mode": settings.demo_mode,
+        "scheduler_available": settings.scheduler_enabled,
+        "credentials_configured": bool(settings.model_api_key.get_secret_value()),
+        "limits": {
+            "candidates": settings.max_candidates,
+            "retries": settings.max_sam_retries,
+            "live_calls": settings.max_live_model_calls_per_scan,
+        },
+    }
+
+
+@router.get("/settings")
+def read_settings():
+    return get_guardrails()
+
+
+@router.put("/settings")
+def save_settings(value: Guardrails):
+    roster_ids = {p["id"] for p in get_league()["roster"]}
+    if not set(value.protected_players) <= roster_ids:
+        raise HTTPException(422, "Protected players must be on the current roster.")
+    with session_scope() as s:
+        s.get(GuardrailSettings, "local").data = value.model_dump()
+        # A saved recommendation cannot bypass a newly tightened guardrail.
+        for row in s.scalars(select(ScanRun).where(ScanRun.stage == "COMPLETED")):
+            if not row.result or not row.result.get("staged_move"):
+                continue
+            result = dict(row.result)
+            move = dict(result["staged_move"])
+            verdict = next(
+                c["verdict"]
+                for c in result["candidates"]
+                if c["player"]["id"] == move["add_player_id"]
+            )
+            if (
+                move["drop_player_id"] in value.protected_players
+                or verdict["confidence"] < value.min_confidence
+            ):
+                result["staged_move"] = None
+                result["guardrail_notice"] = (
+                    "Recommendation withdrawn after guardrails changed. Run a new scan."
+                )
+            else:
+                move["faab_bid"] = min(move["faab_bid"], value.max_faab_bid)
+                result["staged_move"] = move
+            row.result = result
+            staged = s.scalar(select(StagedMove).where(StagedMove.scan_id == row.id))
+            if staged:
+                staged.data = result["staged_move"] or {"status": "WITHDRAWN", "executed": False}
+    return value
+
+
+def scan_json(row):
+    return {
+        "id": row.id,
+        "stage": row.stage,
+        "progress": row.progress,
+        "instruction": row.instruction,
+        "mode": row.mode,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+        "error": row.error,
+        "attempts": row.attempts,
+        "live_calls": row.live_calls,
+        "source": row.source,
+        "result": row.result,
+    }
+
+
+@router.get("/scans")
+def history():
+    with session_scope() as s:
+        return [
+            scan_json(r)
+            for r in s.scalars(select(ScanRun).order_by(ScanRun.created_at.desc()).limit(30))
+        ]
+
+
+@router.post("/scans", status_code=202)
+def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
+    if not settings.demo_mode:
+        raise HTTPException(
+            409,
+            "No supported live NBA league provider is configured. Enable DEMO_MODE=1 to use the clearly labeled sample league with mock or live models.",
+        )
+    if not settings.mock_models and not settings.model_api_key.get_secret_value():
+        raise HTTPException(
+            409,
+            "Live models require MODEL_API_KEY in your backend .env. No simulated fallback was used.",
+        )
+    if idempotency_key and len(idempotency_key) > 100:
+        raise HTTPException(422, "Idempotency key too long.")
+    with session_scope() as s:
+        active = s.scalar(select(ScanRun).where(ScanRun.stage.notin_(("COMPLETED", "FAILED"))))
+        if active:
+            return {"id": active.id, "existing": True}
+    return {"id": enqueue(value.instruction, request_key=idempotency_key)}
+
+
+@router.get("/scans/{scan_id}")
+def scan_detail(scan_id: str):
+    with session_scope() as s:
+        row = s.get(ScanRun, scan_id)
+        if not row:
+            raise HTTPException(404, "Scan not found")
+        events = s.scalars(
+            select(JobEvent).where(JobEvent.scan_id == scan_id).order_by(JobEvent.id)
+        ).all()
+        return {
+            **scan_json(row),
+            "events": [
+                {
+                    "id": e.id,
+                    "created_at": e.created_at,
+                    "stage": e.stage,
+                    "actor": e.actor,
+                    "message": e.message,
+                    "detail": e.detail,
+                }
+                for e in events
+            ],
+        }
+
+
+@router.post("/scans/{scan_id}/retry", status_code=202)
+def retry_scan(scan_id: str):
+    with session_scope() as s:
+        row = s.get(ScanRun, scan_id)
+        if not row:
+            raise HTTPException(404, "Scan not found")
+        if row.stage != "FAILED":
+            raise HTTPException(
+                409,
+                "Only failed scans can be retried; interrupted jobs resume after their lease expires.",
+            )
+        if row.mode != ("mock" if settings.mock_models else "live"):
+            raise HTTPException(409, "Restore the original model mode or start a new scan.")
+        row.stage, row.error, row.lease_until = "QUEUED", None, 0
+        return {"id": row.id}
+
+
+@router.post("/watchlist/{player_id}")
+def watch(player_id: str):
+    with session_scope() as s:
+        if not s.get(Player, player_id):
+            raise HTTPException(404, "Player not found")
+        row = s.scalar(
+            select(Watchlist).where(Watchlist.user_id == "local", Watchlist.player_id == player_id)
+        )
+        if row:
+            s.delete(row)
+            return {"watching": False}
+        s.add(Watchlist(user_id="local", player_id=player_id))
+        return {"watching": True}
+
+
+@router.get("/clips")
+def clips():
+    with session_scope() as s:
+        return [
+            c.data
+            for c in s.scalars(
+                select(Clip).where(Clip.is_demo == False).order_by(Clip.created_at.desc())
+            )
+        ]
+
+
+@router.post("/clips", status_code=201)
+async def upload_clip(
+    file: UploadFile = File(...), player_id: str = Form(...), rights_confirmed: bool = Form(False)
+):
+    if not rights_confirmed:
+        raise HTTPException(422, "Confirm you have rights to process this video.")
+    with session_scope() as s:
+        if not s.get(Player, player_id):
+            raise HTTPException(404, "Unknown player")
+    if Path(file.filename or "").suffix.lower() not in (".mp4", ".mov"):
+        raise HTTPException(422, "Only MP4 or MOV uploads are supported.")
+    directory = settings.data_dir / "uploads"
+    directory.mkdir(parents=True, exist_ok=True)
+    upload = directory / f"{uuid4().hex}.input"
+    processed = directory / f"{uuid4().hex}.mp4"
+    size = 0
+    try:
+        with upload.open("wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > settings.max_upload_mb * 1024 * 1024:
+                    raise HTTPException(413, "Video exceeds the configured upload size limit.")
+                out.write(chunk)
+        inspect_video(upload)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(upload),
+                "-t",
+                str(settings.max_clip_seconds),
+                "-vf",
+                "scale=960:540:force_original_aspect_ratio=decrease,pad=960:540:(ow-iw)/2:(oh-ih)/2",
+                "-r",
+                "12",
+                "-an",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                str(processed),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=90,
+        )
+        return prepare_clip(processed, player_id, False)
+    except ValueError as e:
+        processed.unlink(missing_ok=True)
+        raise HTTPException(422, str(e))
+    except subprocess.SubprocessError:
+        processed.unlink(missing_ok=True)
+        raise HTTPException(422, "Video processing failed. Check the file and ffmpeg installation.")
+    finally:
+        upload.unlink(missing_ok=True)
+        await file.close()
+
+
+@router.get("/scans/{scan_id}/card")
+def card_download(scan_id: str):
+    with session_scope() as s:
+        run = s.get(ScanRun, scan_id)
+        if not run or not run.result or not run.result.get("card"):
+            raise HTTPException(404, "Tape Card not available")
+        path = local_path(run.result["card"]["url"])
+    return FileResponse(path, media_type="image/png", filename=f"tapegrade-{scan_id[:8]}.png")
