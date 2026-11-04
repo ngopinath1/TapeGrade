@@ -39,7 +39,7 @@ describe("scouting dashboard", () => {
       ),
     );
     expect(writeText.mock.calls[0][0]).toContain("FAAB $8");
-    expect(screen.getByText("Awaiting your tap.")).toBeInTheDocument();
+    expect(screen.getByText("Review before you act")).toBeInTheDocument();
   });
   it("submits the user mission and displays the persisted scan and guardrails", async () => {
     let submitted = false;
@@ -56,12 +56,12 @@ describe("scouting dashboard", () => {
     });
     vi.stubGlobal("fetch", fetcher);
     render(<App />);
-    await screen.findByRole("button", { name: /Run scan/ });
-    fireEvent.change(screen.getByLabelText("GIVE YOUR SCOUT A MISSION"), {
+    await screen.findByRole("button", { name: /Run (sample )?scan/ });
+    fireEvent.change(screen.getByLabelText("SCOUTING REQUEST"), {
       target: { value: "Find me a guard" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Run scan/ }));
-    await screen.findByText("Awaiting your tap.");
+    fireEvent.click(screen.getByRole("button", { name: /Run (sample )?scan/ }));
+    await screen.findByText("Review before you act");
     expect(
       fetcher.mock.calls.some(
         ([url, options]) =>
@@ -73,16 +73,20 @@ describe("scouting dashboard", () => {
             }),
       ),
     ).toBe(true);
+    fireEvent.click(screen.getByText("Tracking checks and analysis log"));
     expect(
       screen.getByText(/Tracking quality insufficient/),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Download and share this report"));
     expect(screen.getByRole("link", { name: /Download PNG/ })).toHaveAttribute(
       "href",
       `/api/scans/${scan.id}/card`,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Autopilot" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Scouting preferences" }),
+    );
     expect(
-      screen.getByRole("button", { name: /Save guardrails/ }),
+      screen.getByRole("button", { name: /Save scouting preferences/ }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/Jordan Sterling/)).toBeChecked();
   });
@@ -115,7 +119,7 @@ describe("scouting dashboard", () => {
     );
     render(<App />);
     await screen.findByText("Film test · stats unavailable");
-    expect(screen.getByText("No recommended transaction")).toBeInTheDocument();
+    expect(screen.getByText("Film review only")).toBeInTheDocument();
     expect(
       screen.getByText(
         /Game date, fantasy eligibility and statistics are unverified/,
@@ -187,6 +191,8 @@ describe("scouting dashboard", () => {
       target: { value: "123" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Connect NBA league" }));
+    await screen.findByRole("button", { name: "Manage league" });
+    fireEvent.click(screen.getByRole("button", { name: "My roster" }));
     await screen.findByText("Live Player 0");
     expect(screen.getByText("PERIOD 3 FPTS")).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "24.5" })).toBeInTheDocument();
@@ -207,7 +213,9 @@ describe("scouting dashboard", () => {
       ),
     ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Scouting desk" }));
-    expect(screen.getByRole("button", { name: /Run scan/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Run (sample )?scan/ }),
+    ).toBeDisabled();
   });
   it("shows backend errors without marking a failed request complete", async () => {
     vi.stubGlobal(
@@ -278,6 +286,7 @@ it("opens league setup with explicit missing data and import controls", async ()
     await screen.findByText("Technical and flagrant foul coverage is missing."),
   ).toBeInTheDocument();
   expect(screen.getByText("Import licensed JSON")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "League rules" }));
   expect(screen.getByLabelText("Basketball mode")).toHaveValue("unknown");
   expect(
     screen.getByRole("button", { name: "Save verified rule evidence" }),
@@ -317,6 +326,7 @@ it("shows the owner-confirmed mode, FAAB budget and stacking rule", async () => 
   );
   render(<App />);
   fireEvent.click(await screen.findByRole("button", { name: "League setup" }));
+  fireEvent.click(await screen.findByRole("button", { name: "League rules" }));
   expect(await screen.findByLabelText("Basketball mode")).toHaveValue(
     "lock_in",
   );
@@ -372,7 +382,7 @@ it("allows scouting with unknown eligibility and keeps refresh controls separate
   });
   vi.stubGlobal("fetch", fetcher);
   render(<App />);
-  const run = await screen.findByRole("button", { name: /Run scan/ });
+  const run = await screen.findByRole("button", { name: /Run (sample )?scan/ });
   expect(run).toBeEnabled();
   expect(screen.getByText(/Scouting report only:/)).toBeInTheDocument();
   expect(screen.getByText(/Test Scouting Subject/)).toBeInTheDocument();
@@ -385,7 +395,7 @@ it("allows scouting with unknown eligibility and keeps refresh controls separate
   await screen.findByText(/Sleeper roster and rules refreshed/);
   expect(screen.queryByText(oldError)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Refresh game logs" }));
-  await screen.findByText(/Refresh queued; the worker will fetch/);
+  await screen.findByText(/Game-log refresh queued/);
   expect(
     fetcher.mock.calls.filter(([url]) => url === "/api/sleeper/refresh"),
   ).toHaveLength(1);

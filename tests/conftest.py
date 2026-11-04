@@ -11,6 +11,14 @@ os.environ["NBA_STATS_PROVIDER"] = "none"
 os.environ["SPORTRADAR_API_KEY"] = ""
 os.environ["BALLDONTLIE_API_KEY"] = ""
 os.environ["STATS_WINDOW_DAYS"] = "30"
+os.environ["MAX_CLIP_SECONDS"] = "30"
+os.environ["MAX_CANDIDATES"] = "3"
+os.environ["MAX_CLIPS_PER_CANDIDATE"] = "1"
+os.environ["MAX_SAM_RETRIES"] = "2"
+os.environ["MAX_LIVE_MODEL_CALLS_PER_SCAN"] = "15"
+os.environ["FOOTAGE_CATALOG_PATH"] = ""
+os.environ["FOOTAGE_DISCOVERY_ENABLED"] = "0"
+os.environ["PUBLIC_FOOTAGE_ANALYSIS_ENABLED"] = "0"
 
 import httpx
 import pytest

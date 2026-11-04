@@ -21,7 +21,7 @@ export function Recommendation({
     if (!move) return;
     try {
       await navigator.clipboard.writeText(
-        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : scan?.result?.league_is_demo === false ? "live Sleeper league report" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\n${move.faab_bid === null ? "No FAAB bid applies" : `FAAB $${move.faab_bid}`}\n${move.reasoning}\nAwaiting your tap. Recommendation only.`,
+        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : scan?.result?.league_is_demo === false ? "live Sleeper league report" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\n${move.faab_bid === null ? "No FAAB bid applies" : `FAAB $${move.faab_bid}`}\n${move.reasoning}\nRecommendation only. Make any roster move in Sleeper.`,
       );
       onToast("Recommendation copied.");
     } catch {
@@ -32,7 +32,8 @@ export function Recommendation({
     <section className="panel recommendation">
       <div className="panel-head">
         <div className="section-label">
-          <Zap size={15} /> YOUR NEXT MOVE
+          <Zap size={15} />{" "}
+          {scan?.result?.film_test ? "DIAGNOSTIC RESULT" : "RECOMMENDED MOVE"}
         </div>
         <ShieldCheck size={15} className="positive" />
       </div>
@@ -76,8 +77,12 @@ export function Recommendation({
           <p className="move-reason">{move.reasoning}</p>
           <div className="awaiting">
             <span className="live-dot" />
-            Awaiting your tap.<span>Recommendation only</span>
+            Review before you act<span>Recommendation only</span>
           </div>
+          <p className="move-instruction">
+            Make this move in Sleeper after reviewing the film and current
+            player availability.
+          </p>
           <button className="button primary full" onClick={copy}>
             <Copy size={15} /> Copy move summary <ArrowRight size={15} />
           </button>
@@ -87,13 +92,17 @@ export function Recommendation({
           <ShieldCheck size={30} />
           <h3>
             {scan?.result
-              ? "No recommended transaction"
+              ? scan.result.film_test
+                ? "Film review only"
+                : "No move recommended"
               : "Your roster. Your final call."}
           </h3>
           <p>
             {scan?.result?.guardrail_notice ??
               (scan?.result
-                ? "No move cleared the film evidence and your guardrails."
+                ? scan.result.film_test
+                  ? "This diagnostic checks tracking quality. It does not compare players or recommend a roster move."
+                  : "No move cleared the film evidence and your saved limits. Review the player verdicts to see what was missing."
                 : "A validated add, drop and bid will be staged after your scan.")}
           </p>
         </div>

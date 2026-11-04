@@ -46,8 +46,8 @@ def get_guardrails(factory=None, league_id=None):
         return Guardrails.model_validate(s.get(GuardrailSettings, "local").data)
 
 
-def save_league(snapshot, factory=None):
-    """Persist an actual read-only provider snapshot and select its workspace."""
+def save_league(snapshot, factory=None, select_workspace=True):
+    """Persist a provider snapshot; background refreshes preserve the active workspace."""
     with session_scope(factory) as s:
         row = s.get(League, snapshot["id"])
         data = dict(snapshot)
@@ -87,7 +87,8 @@ def save_league(snapshot, factory=None):
                 data={"roster": data["roster"], "period": data.get("period"), "source": "Sleeper"},
             )
         )
-        s.get(Workspace, "local").active_league_id = data["id"]
+        if select_workspace:
+            s.get(Workspace, "local").active_league_id = data["id"]
     return data
 
 

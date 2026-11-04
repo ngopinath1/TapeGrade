@@ -91,6 +91,7 @@ def test_nba_direct_id_maps_true_period_points_and_excludes_all_rostered_players
         p["minutes"] is None and p["stats"] == {} and p["trend"] == [] for p in snapshot["roster"]
     )
     assert [p["external_id"] for p in snapshot["available"]] == ["16"]
+    assert {p["external_id"] for p in snapshot["other_rostered"]} == {"14", "15"}
     assert snapshot["scouting_ready"] is False
     assert "not game averages" in snapshot["notice"]
     assert seen == [

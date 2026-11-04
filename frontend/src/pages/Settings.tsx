@@ -22,13 +22,14 @@ export function Settings({
     <section className="panel settings-panel">
       <div className="panel-head">
         <div className="section-label">
-          <SlidersHorizontal size={15} /> AUTOPILOT GUARDRAILS
+          <SlidersHorizontal size={15} /> SCOUTING PREFERENCES
         </div>
         <ShieldCheck size={16} />
       </div>
-      <h2>Keep the scout inside your lines.</h2>
+      <h2>Decide what the scout can recommend.</h2>
       <p className="muted">
-        These rules are persisted and enforced by the backend.
+        Protected players will never be suggested as drops. Bid limits and
+        confidence requirements apply to every recommendation.
       </p>
       <form
         onSubmit={async (e) => {
@@ -43,7 +44,7 @@ export function Settings({
       >
         <div className="settings-grid">
           <label>
-            Minimum verdict confidence{" "}
+            Minimum recommendation confidence{" "}
             <strong>{percent(value.min_confidence)}</strong>
             <input
               type="range"
@@ -55,10 +56,13 @@ export function Settings({
                 setValue({ ...value, min_confidence: Number(e.target.value) })
               }
             />
-            <small>ADD recommendations must meet this threshold.</small>
+            <small>
+              ADD recommendations must meet this threshold. This is analysis
+              confidence, not a probability of future success.
+            </small>
           </label>
           <label>
-            Maximum FAAB bid ($)
+            Maximum waiver bid ($)
             <input
               type="number"
               min="0"
@@ -68,7 +72,10 @@ export function Settings({
                 setValue({ ...value, max_faab_bid: Number(e.target.value) })
               }
             />
-            <small>Also capped by the league’s remaining budget.</small>
+            <small>
+              For leagues using FAAB (a waiver bidding budget). Also capped by
+              the remaining league budget.
+            </small>
           </label>
         </div>
         <label className="field-label">PROTECTED PLAYERS (OPTIONAL)</label>
@@ -102,21 +109,23 @@ export function Settings({
             <input
               type="checkbox"
               checked={value.schedule_enabled}
+              disabled={!data.scheduler_available}
               onChange={(e) =>
                 setValue({ ...value, schedule_enabled: e.target.checked })
               }
             />
-            <span>Nightly scan · 1:30 AM America/New_York</span>
+            <span>Nightly scan · 1:30 AM Eastern</span>
           </label>
           <p>
             {data.scheduler_available
-              ? "Scheduler environment enabled. Keep the worker running."
-              : "Scheduler disabled by environment. Set SCHEDULER_ENABLED=1 and restart the worker to activate saved schedules."}
+              ? "Available while this Mac is awake and TapeGrade’s worker is running. Recommendations still need your review."
+              : "Scheduled scans are unavailable in this environment. Run a manual scan from the scouting desk."}
           </p>
           <label>
             Optional pre-waiver hour (Eastern)
             <select
               value={value.pre_waiver_hour ?? ""}
+              disabled={!data.scheduler_available}
               onChange={(e) =>
                 setValue({
                   ...value,
@@ -134,7 +143,8 @@ export function Settings({
             </select>
           </label>
         </div>
-        <div className="mode-settings">
+        <details className="mode-settings">
+          <summary>Advanced environment details</summary>
           <h3>Models & data</h3>
           <p>
             Models: <b>{data.models_mode.toUpperCase()}</b> · League:{" "}
@@ -153,14 +163,14 @@ export function Settings({
             {data.limits.candidates} candidates · up to {data.limits.retries}{" "}
             SAM retries · {data.limits.live_calls} live calls per scan
           </p>
-        </div>
+        </details>
         <button type="submit" disabled={saving} className="button primary">
           {saving ? (
             <Loader2 className="spin" size={16} />
           ) : (
             <Check size={16} />
           )}
-          Save guardrails
+          Save scouting preferences
         </button>
       </form>
     </section>

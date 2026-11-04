@@ -10,13 +10,13 @@ export function PerceptionLog({
   selected?: Candidate;
 }) {
   const events = (scan?.events ?? []).filter((e) =>
-    ["TRACKING", "CRITIQUING", "FAILED"].includes(e.stage),
+    ["TRACKING", "CRITIQUING", "SWITCHING_CLIPS", "FAILED"].includes(e.stage),
   );
   return (
     <section className="panel perception-panel">
       <div className="panel-head">
         <div className="section-label">
-          <Fingerprint size={15} /> PERCEPTION LOOP
+          <Fingerprint size={15} /> FILM QUALITY CHECKS
         </div>
         <span className="tag">
           <span className="live-dot" />{" "}
@@ -24,8 +24,11 @@ export function PerceptionLog({
         </span>
       </div>
       <div className="log-intro">
-        <h2>An agent that checks its own eyes.</h2>
-        <p>SAM tracks. Muse Spark critiques. The prompt gets smarter.</p>
+        <h2>How reliable is the tracking?</h2>
+        <p>
+          The scout checks tracking for identity swaps and missing observations
+          before using film measurements.
+        </p>
       </div>
       {events.length ? (
         <div className="log-list">
@@ -82,8 +85,10 @@ export function PerceptionLog({
           {selected.critiques.map((critique) => (
             <p key={critique.attempt}>
               <b>
-                Attempt {critique.attempt + 1} ·{" "}
-                {percent(critique.quality_score)}:
+                {critique.clip_attempt
+                  ? `Clip ${critique.clip_attempt} · Pass ${critique.tracking_attempt ?? 1}`
+                  : `Attempt ${critique.attempt + 1}`}{" "}
+                · {percent(critique.quality_score)}:
               </b>{" "}
               {critique.explanation}{" "}
               {critique.retry_justified

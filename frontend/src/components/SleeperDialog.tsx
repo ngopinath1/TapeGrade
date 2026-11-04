@@ -49,11 +49,11 @@ export function SleeperDialog({
         <div className="section-label">
           <Users size={16} /> LEAGUE CONNECTION
         </div>
-        <h2 id="sleeper-title">Find your Sleeper account.</h2>
+        <h2 id="sleeper-title">Connect your Sleeper league.</h2>
         <p>
-          Enter your username and NBA league ID to import your actual roster,
-          scoring rules and reported period points. NBA access is verified by
-          league ID; automatic league discovery is documented for NFL only.
+          Enter your username and NBA league ID. TapeGrade imports your roster
+          and scoring settings, then refreshes them when you run a scan. No
+          Sleeper password is needed.
         </p>
         <form
           onSubmit={async (e) => {
@@ -98,6 +98,7 @@ export function SleeperDialog({
               value={leagueId}
               onChange={(e) => setLeagueId(e.target.value.trim())}
               inputMode="numeric"
+              required
               pattern="[0-9]{1,30}"
               maxLength={30}
               placeholder="From your Sleeper league URL"
@@ -109,11 +110,7 @@ export function SleeperDialog({
             ) : (
               <Search size={16} />
             )}
-            {leagueId
-              ? connection
-                ? "Refresh league"
-                : "Connect NBA league"
-              : "Look up account"}
+            {connection ? "Refresh league" : "Connect NBA league"}
           </button>
         </form>
         {error && <p className="inline-error">{error}</p>}
@@ -172,14 +169,22 @@ export function SleeperDialog({
             )}
           </div>
         )}
-        <a
-          className="text-link"
-          href="https://docs.sleeper.com/#get-all-leagues-for-user"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Read Sleeper API limitations <ExternalLink size={12} />
-        </a>
+        <details className="readiness-details">
+          <summary>About this connection</summary>
+          <p>
+            NBA leagues are connected by ID. Sleeper documents automatic league
+            discovery for NFL; NBA compatibility is checked when you connect.
+            TapeGrade reads league data and never submits roster moves.
+          </p>
+          <a
+            className="text-link"
+            href="https://docs.sleeper.com/#get-all-leagues-for-user"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read Sleeper API limitations <ExternalLink size={12} />
+          </a>
+        </details>
         <button
           className="button subtle full"
           onClick={async () => {

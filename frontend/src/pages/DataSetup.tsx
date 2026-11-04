@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Database, RefreshCw, Upload, ShieldCheck } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { api } from "../lib/api";
+import type { SetupSection } from "../components/ScoutingGuide";
+import { ArrowLeft } from "lucide-react";
 import { ScanReadiness } from "../components/ScanReadiness";
 
 type Proposal = {
@@ -34,11 +36,16 @@ export function DataSetup({
   data,
   onRefresh,
   onError,
+  initialSection = "statistics",
+  onDone,
 }: {
   data: Bootstrap;
+  initialSection?: SetupSection;
+  onDone: () => void;
   onRefresh: () => Promise<void>;
   onError: (message: string) => void;
 }) {
+  const [section, setSection] = useState<SetupSection>(initialSection);
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -106,7 +113,44 @@ export function DataSetup({
   );
   return (
     <div className="data-setup">
-      <section className="panel settings-panel">
+      <div className="setup-navigation">
+        <button className="text-link" onClick={onDone}>
+          <ArrowLeft size={14} /> Back to scouting
+        </button>
+        <p>
+          Start with game logs and league rules. Player availability is needed
+          only for add/drop recommendations.
+        </p>
+        <nav aria-label="League setup sections">
+          {(
+            [
+              { id: "statistics", label: "Game logs" },
+              { id: "rules", label: "League rules" },
+              { id: "eligibility", label: "Player availability" },
+              { id: "identity", label: "Player matching" },
+              { id: "coverage", label: "Browse evidence" },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.id}
+              aria-current={section === item.id ? "page" : undefined}
+              className={section === item.id ? "active" : ""}
+              onClick={() => setSection(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        {message && (
+          <p role="status" className="setup-success">
+            {message}
+          </p>
+        )}
+      </div>
+      <section
+        className="panel settings-panel"
+        hidden={section !== "statistics"}
+      >
         <div className="panel-head">
           <div className="section-label">
             <Database size={15} /> LEAGUE DATA & READINESS
@@ -115,7 +159,7 @@ export function DataSetup({
             {data.league.scouting_ready ? "STATISTICS READY" : "SETUP REQUIRED"}
           </span>
         </div>
-        <h2>Make every comparison traceable.</h2>
+        <h2>Load recent scores for your league.</h2>
         <p className="muted">
           Recent averages use up to five completed games in the same declared
           window ({status?.window_days ?? 30} days for new refreshes), with at
@@ -148,7 +192,7 @@ export function DataSetup({
             onClick={() =>
               void act(
                 () => api("/sleeper/refresh", { method: "POST" }),
-                "Sleeper roster and rules refreshed. Game logs are refreshed separately; waiver status and drop locks still need your review below.",
+                "Sleeper roster and rules refreshed. Game logs are refreshed separately; waiver status and drop locks still need review in Player availability.",
               )
             }
           >
@@ -160,7 +204,7 @@ export function DataSetup({
             onClick={() =>
               void act(
                 () => api("/stats/refresh", { method: "POST" }),
-                "Refresh queued; the worker will fetch a bounded window.",
+                "Game-log refresh queued. You can keep using TapeGrade while it updates.",
               )
             }
           >
@@ -215,23 +259,18 @@ export function DataSetup({
             {j.status} · {j.id.slice(0, 8)} {j.error && `· ${j.error}`}
           </p>
         ))}
-        {message && (
-          <p role="status" className="data-note">
-            {message}
-          </p>
-        )}
       </section>
-      <section className="panel settings-panel">
+      <section className="panel settings-panel" hidden={section !== "rules"}>
         <div className="panel-head">
           <div className="section-label">
-            <ShieldCheck size={15} /> VERIFY LEAGUE RULES
+            <ShieldCheck size={15} /> CONFIRM YOUR SCORING RULES
           </div>
         </div>
         <p className="muted">
           Check Sleeper’s league settings and a scored 50-point game before
-          saving bonus behavior. Numeric API codes remain uninterpreted. Save
-          optional protected players in Autopilot. Everyone else can be
-          evaluated using current, verified statistics.
+          saving bonus behavior. Numeric API codes remain uninterpreted. Choose
+          optional protected players in Scouting preferences. Everyone else can
+          be evaluated using current, verified statistics.
         </p>
         <form
           onSubmit={(e) => {
@@ -251,7 +290,7 @@ export function DataSetup({
                     source_ref: source,
                   }),
                 }),
-              "Rule evidence saved.",
+              "League rules saved. Scouting readiness checked again.",
             );
           }}
         >
@@ -328,9 +367,9 @@ export function DataSetup({
           </button>
         </form>
       </section>
-      <section className="panel settings-panel">
+      <section className="panel settings-panel" hidden={section !== "identity"}>
         <div className="panel-head">
-          <div className="section-label">PLAYER IDENTITY REVIEW</div>
+          <div className="section-label">MATCH PLAYERS ACROSS DATA SOURCES</div>
         </div>
         <p className="muted">
           Exact normalized names are proposals. Review each athlete using
@@ -394,15 +433,19 @@ export function DataSetup({
               ))}
             </div>
           ))}
-        {!proposals.length && (
+        {!proposals.some((p) => p.status !== "verified") && (
           <p className="data-note">
-            Import or refresh game logs to generate mapping proposals.
+            No unresolved player matches. Import or refresh game logs to check
+            for new matches.
           </p>
         )}
       </section>
-      <section className="panel settings-panel">
+      <section
+        className="panel settings-panel"
+        hidden={section !== "eligibility"}
+      >
         <div className="panel-head">
-          <div className="section-label">CURRENT TRANSACTION ELIGIBILITY</div>
+          <div className="section-label">CHECK WHO CAN BE ADDED OR DROPPED</div>
         </div>
         <p className="muted">
           Unrostered status does not prove addability. Check the candidate’s
@@ -411,7 +454,7 @@ export function DataSetup({
           without it.
         </p>
         <ol className="data-note">
-          <li>Refresh Sleeper roster above.</li>
+          <li>In Game logs, refresh the Sleeper roster.</li>
           <li>
             Choose a free agent below, select “Immediate free agent” or “On
             waivers” based on Sleeper, and save your verification source.
@@ -514,7 +557,7 @@ export function DataSetup({
           </button>
         </form>
       </section>
-      <section className="panel settings-panel">
+      <section className="panel settings-panel" hidden={section !== "coverage"}>
         <div className="panel-head">
           <div className="section-label">ROSTER & FREE-AGENT GAME LOGS</div>
         </div>

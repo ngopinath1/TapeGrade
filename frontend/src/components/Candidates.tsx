@@ -9,24 +9,29 @@ export function Candidates({
   onSelect,
   watchlist,
   onWatch,
+  emptyReason,
 }: {
   candidates: Candidate[];
   selected: string;
   onSelect: (id: string) => void;
   watchlist: string[];
   onWatch: (id: string) => void;
+  emptyReason?: string;
 }) {
   return (
     <section className="panel candidates-panel">
       <div className="panel-head">
         <div className="section-label">
-          <Radar size={15} /> OPPORTUNITY BOARD
+          <Radar size={15} /> PLAYER VERDICTS
         </div>
         <span className="count-pill">{candidates.length} scouted</span>
       </div>
       <div className="board-heading">
-        <h2>Read between the stats.</h2>
-        <p>Ranked by role, opportunity and film evidence.</p>
+        <h2>Players in this report</h2>
+        <p>
+          Select a player to see their film below. ADD: consider adding ·
+          MONITOR: keep watching · PASS: no add supported.
+        </p>
       </div>
       {candidates.length ? (
         <div className="candidate-list">
@@ -106,20 +111,16 @@ export function Candidates({
       ) : (
         <div className="board-empty">
           <Radar size={32} />
-          <h3>Find your next advantage.</h3>
+          <h3>No players matched this request.</h3>
           <p>
-            Tell the scout what your roster needs. Your ranked candidates will
-            land here.
+            {emptyReason ??
+              "Try a broader request or another position. The scout will explain any missing statistics or film."}
           </p>
-          <span>
-            01 &nbsp; Scout &nbsp; → &nbsp; 02 &nbsp; Watch &nbsp; → &nbsp; 03
-            &nbsp; Decide
-          </span>
         </div>
       )}
       <div className="board-foot">
         <ShieldCheck size={13} />
-        <span>Film supports the verdict. You make the move.</span>
+        <span>Review the evidence. You make the move.</span>
       </div>
     </section>
   );

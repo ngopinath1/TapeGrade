@@ -103,3 +103,28 @@ def test_instruction_changes_shortlist():
     assert ScoutAgent(MockSpark()).shortlist(
         "Find a center for rebounds", league, 3
     ).player_ids == ["c4"]
+
+
+def test_decision_agent_withholds_unsupported_model_interpretation_without_retry():
+    from backend.agents.decision import DecisionAgent
+
+    league, candidate, decision = evidence()
+    decision.verdicts[0].metric_refs = ["invented_or_unavailable_metric"]
+
+    class OneResponse:
+        calls = 0
+
+        def reason(self, *args, **kwargs):
+            self.calls += 1
+            return decision
+
+    model = OneResponse()
+    agent = DecisionAgent(model)
+    result, move = agent.decide("Inspect the evidence", league, [candidate], Guardrails())
+    assert model.calls == 1 and move is None
+    assert result.verdicts[0].verdict == "MONITOR"
+    assert result.verdicts[0].confidence == 0 and result.verdicts[0].metric_refs == []
+    assert "withheld" in result.verdicts[0].rationale
+    assert agent.validation_warnings[0]["unsupported_metric_refs"] == [
+        "invented_or_unavailable_metric"
+    ]

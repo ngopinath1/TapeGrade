@@ -9,6 +9,9 @@ import {
   Play,
 } from "lucide-react";
 import type { Candidate } from "../types";
+import { PlayerIdentity } from "./PlayerIdentity";
+import { IdentifiedPlayers } from "./IdentifiedPlayers";
+import { ClipAttempts } from "./ClipAttempts";
 
 const colors = {
   target: "#bcf87a",
@@ -21,10 +24,13 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [overlay, setOverlay] = useState(true);
+  const trackingAccepted =
+    candidate?.tracking_accepted ?? (candidate?.quality ?? 0) >= 0.75;
   useEffect(() => {
     setTime(0);
     setPlaying(false);
-  }, [candidate?.player.id]);
+    setOverlay(trackingAccepted);
+  }, [candidate?.clip?.id, trackingAccepted]);
   useEffect(() => {
     if (!playing) return;
     let request: number;
@@ -65,7 +71,9 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           {tracking?.simulated
             ? "SCHEMATIC SIMULATION"
             : clip
-              ? "UPLOADED FOOTAGE"
+              ? clip.public_source
+                ? "PUBLIC ESPN HIGHLIGHT"
+                : "UPLOADED FOOTAGE"
               : "AWAITING ANALYSIS"}
         </span>
       </div>
@@ -80,13 +88,48 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
         </div>
         <span className="tag">
           <Crosshair size={12} />{" "}
-          {candidate?.verified
-            ? "Clip verified"
-            : candidate
-              ? "Clip unverified"
-              : "Local film analysis"}
+          {candidate?.identity
+            ? candidate.identity.status === "corroborated"
+              ? "Identity corroborated"
+              : candidate.identity.status === "tracking_rejected"
+                ? "Tracking identity uncertain"
+                : "Identity unconfirmed"
+            : candidate?.verified
+              ? "Clip verified"
+              : candidate
+                ? "Clip unverified"
+                : "Local film analysis"}
         </span>
       </div>
+      {clip && !clip.is_demo && (
+        <p className="film-provenance">
+          {clip.source_ref?.startsWith("https://") ? (
+            <a href={clip.source_ref} target="_blank" rel="noreferrer">
+              {clip.source_title ?? clip.source}
+            </a>
+          ) : (
+            clip.source
+          )}
+          {" · "}
+          {clip.game_date
+            ? `Game date: ${clip.game_date}`
+            : "Game date not supplied"}
+          {" · "}
+          {clip.duration.toFixed(1)}s excerpt
+          {clip.source_span
+            ? ` · source ${clip.source_span.start.toFixed(1)}–${clip.source_span.end.toFixed(1)}s`
+            : ""}
+        </p>
+      )}
+      <ClipAttempts candidate={candidate} />
+      <PlayerIdentity candidate={candidate} />
+      {tracking && !trackingAccepted && (
+        <p className="verification-note" role="status">
+          Tracking needs review ({Math.round((candidate?.quality ?? 0) * 100)}%
+          quality). Film measurements were withheld. Overlays are hidden; use
+          the eye button to inspect the unreliable tracks.
+        </p>
+      )}
       <div className="video-wrap">
         {clip ? (
           <>
@@ -148,7 +191,12 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
                       fontSize="13"
                       fontFamily="monospace"
                     >
-                      {o.role.toUpperCase()} {o.id}
+                      {trackingAccepted &&
+                      candidate?.identity?.status === "corroborated"
+                        ? (candidate.identity.tracked_players.find(
+                            (p) => p.object_id === o.id,
+                          )?.name ?? `${o.role.toUpperCase()} ${o.id}`)
+                        : `${o.role.toUpperCase()} ${o.id}`}
                     </text>
                     <circle
                       cx={o.centroid[0]}
@@ -165,7 +213,11 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
               {tracking
                 ? tracking.simulated
                   ? "SIMULATED TRACKS"
-                  : "SAM 3.1 TRACKS"
+                  : trackingAccepted
+                    ? "SAM 3.1 TRACKS"
+                    : overlay
+                      ? "UNRELIABLE TRACKS · FOR INSPECTION"
+                      : "TRACKING WITHHELD"
                 : "NO ACCEPTED TRACKS"}
             </div>
           </>
@@ -242,7 +294,7 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
             : "Screen-space tracking"}
         </span>
       </div>
-      {candidate && !candidate.verified && (
+      {candidate && !candidate.verified && !candidate.identity && (
         <p className="verification-note">
           {candidate.verification
             ? `Clip rejected: ${candidate.verification.reason}`
@@ -278,6 +330,7 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           </div>
         )}
       </div>
+      <IdentifiedPlayers profiles={candidate?.identified_players} />
       {candidate && (
         <details className="method-note">
           <summary>How these film proxies are measured</summary>

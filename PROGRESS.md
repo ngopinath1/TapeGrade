@@ -2,6 +2,41 @@
 
 Last verified: November 4, 2026, America/New_York.
 
+## Latest real fallback test
+
+- User-authorized Sam Hauser scan `adbe3ce155e248cd9787ad183f7aebbd` completed with **4/6 actual model calls** and one recorded automatic switch. No additional calls were made during fixes or UI verification.
+- Fixed single-highlight coverage: discovery can use a non-overlapping later excerpt when a short source contains enough footage. Explicit source spans, content hashes and overlap checks prevent repeated frames from counting as new footage. The report labels both excerpts as the same play.
+- Actual ESPN source `50351816`: first excerpt 0–5s passed target identity but failed defender tracking at 45% quality; the 11–16s alternative failed opening-frame identity and correctly skipped SAM. The final report retained the best available first view, returned MONITOR and staged no move. No thresholds were relaxed to force success.
+- Simplified failed-clip explanations to use the real verifier's reason while preserving detailed identity checks in the audit. Both source ranges and rejection reasons were verified in the UI.
+- **222 backend tests, 35 frontend tests and production build passed.** Audit: ignored `data/cache/live-fallback-verification.json`; screenshot: `data/cache/live-fallback-report.png`. Latest API and idle worker run locally with scheduling off and six-call cap unchanged.
+
+## Latest automatic clip fallback
+
+- Added automatic evaluation of up to two distinct recent clips per player. Unclear identity, poor tracking or missing supported measurements triggers a switch when enough budget remains.
+- Two clips share one request containing separate frame-mapped identity checks. Named-player first-clip tracking failure followed by a successful alternative and final report fits exactly six calls; successful identity fallback takes four. Earlier scouting and candidates reduce available headroom.
+- Duplicate content/source URLs are excluded. Clip history preserves each rejection and identifies the selected source. Both failed clips produce a conservative report with unsupported metrics withheld.
+- Reserved final-report budget, skipped paid artwork when no call remains, and persisted clip plans/checks/trials plus final decisions for safe resume without resetting call accounting.
+- **211 backend tests, 34 frontend tests and production build passed.** New cases cover restart after a completed trial and after the sixth/final decision call, as well as budget limits and source failures. Zero new paid model requests.
+- Enabled `MAX_CLIPS_PER_CANDIDATE=2` in this worktree's ignored runtime configuration and live launch profile. API and idle worker use the new code; scheduling remains off, total scan limit remains six. Branch: `feature/backend` in the dedicated linked worktree.
+
+## Latest per-player performance integration
+
+- Every named clip player now joins the dated ESPN roster to a unique statistics-provider identity using full name, team, jersey and a recorded appearance in that game. Shared NBA/Sportradar IDs establish league membership; ambiguous or conflicting joins withhold eligibility.
+- Profiles show individual recent game logs, box-score averages, minutes, league-weighted fantasy scoring, sample sizes, source links and availability. Other fantasy teams' rostered players remain distinct from free agents.
+- Each player receives an individual continuity check inside the existing critic call. Own-track metrics exclude teammates and failed/unconfirmed opponent tracks. Additional qualified free agents can share the final recommendation call without another clip/model analysis; transaction guardrails remain enforced.
+- The saved ESPN report was enriched with zero additional model calls: Hauser 7.00 FPTS/game (PASS), Wagner 24.33 (rostered elsewhere; trade research), Cain 6.33 (MONITOR screening). Each has three sourced games. Original decisions and a backup are preserved. No ADD is supported by this clip's unreliable tracking.
+- **197 backend tests, 31 frontend tests, production build and browser/source-download checks passed.** The ESPN test remains at **4/6 model calls**. Latest API and idle worker run locally with scheduling off.
+
+## Latest ESPN end-to-end verification
+
+- User-authorized scan `748cfa61db7d45728ca89233b4083428` completed using the newly discovered five-second ESPN Sam Hauser clip, with **4/6 actual model calls** across the entire test and no further paid calls during fixes.
+- Automatic Sleeper and fresh Sportradar refresh preceded four uncached ESPN metadata requests and public MP4 acquisition. The clip hash matched the prepared ESPN excerpt; storage deduplicated it. The older four-second upload was not used.
+- Dated game roster plus visible BOS #30 jersey observations and multi-frame continuity now bind the target to SAM ID 1. Proof crops, original frames, roster link and seed-frame player names are visible in the report. Unreadable or conflicting identities remain unnamed; no face matching.
+- SAM returned 60 actual tracked frames. The tracking review preserved the target identity but caught defender drift to empty court. Quality 45%, numerical film metrics withheld, PASS, no staged move, no image-generation call.
+- Fixed tracking acceptance to respect identity gates, recovery after a supported correction, truthful card progress, and default hiding/labeling of unreliable overlays.
+- **181 backend tests, 28 frontend tests, production build passed.** Browser playback and evidence loading verified. Latest code runs locally with idle worker, scheduling off and six-call limit retained.
+- See `docs/AUTOMATIC_SCANNING.md` and ignored `data/cache/espn-fullflow-verification.json` for the accounting and limitations. This validates the live pipeline, not fantasy prediction accuracy or complete opponent tracking.
+
 ## Completed milestones
 
 - [x] Inspected empty workspace, parent instructions and available tools.
@@ -386,3 +421,47 @@ With all three services running in mock mode:
   new inference was requested. Offline HTTP contracts cover both reviewed and
   unknown eligibility paths through a completed scan, PNG and evidence download.
 - API/worker reloaded. Audit: `data/cache/scan-usability/verified-readiness.json`.
+
+## November 4: guided product workflow
+
+- Reworked first use around a clearly labeled sample scan and editable position requests. Empty analysis panels no longer precede a result.
+- Added readiness-based next actions, direct links to focused league setup sections, and a clear distinction between scouting reports and actionable add/drop recommendations.
+- Put the recommended move and player verdicts before film. Collapsed the next request, technical audit, downloads and league overview after report completion.
+- Renamed Autopilot to Scouting preferences, clarified verdicts/confidence and the Sleeper handoff, and disabled unavailable scheduling controls.
+- Added explicit player selection/search for film uploads, global readiness refresh after processing, and a return to scouting.
+- Added labeled mobile navigation, retained tablet labels, named progress phases, keyboard access and reduced-motion handling.
+- Product rationale, design review, contrast measurements and the remaining input/reliability gaps are recorded in `docs/PRODUCT_DIRECTION.md`.
+- Validation uses an isolated mock preview database and cached local dependencies. Existing live league data and credentials are untouched. No paid inference, transaction, push or deployment is part of this change.
+- Checks passed: 138 offline backend tests, 19 frontend tests, TypeScript/Vite production build and mock-only HTTP smoke (three candidates, PNG/video verified, zero live calls). Browser checks cover the completed sample, changing players, playback, mobile navigation and 390px/320px layouts without horizontal overflow. Preview screenshots are ignored under `data/cache/usability-*.jpg`.
+
+## November 4: automatic live scan preparation
+
+- Live API scans now perform durable worker-side Sleeper refresh and conditional bounded game-log refresh before freezing the scan snapshot. They preserve league selection, rules and protections. Missing preloaded clips or stale cached scores no longer prevent starting a scan.
+- Added an authorized footage-catalog adapter with exact NBA ID/date matching, bounded local/HTTPS extraction, provenance and visual verification. Added bounded cached ESPN player-highlight metadata discovery; public viewing links remain separate from analyzed media.
+- Live models are the default, with explicit demo startup. The local checkout now uses existing live credentials and a copied league database, preserving the original checkout, the one-candidate/six-call cap, five-second clips and disabled scheduling. Credentials and runtime data remain ignored.
+- Updated the interface for connect → Run live scan → six understandable processing stages → evidence/report. Reports surface missing film, source links, real call counts and focused recovery steps.
+- Offline validation: 153 backend tests and 22 frontend tests passed; TypeScript/Vite build passed. Full HTTP contracts exercise automatic preparation and all three actual model clients without paid inference. Tests isolate live runtime limits so the personal five-second profile does not alter the sample fixtures.
+- Read-only live checks: Sleeper roster refreshed with confirmed rules preserved; 100 supported recent-stat candidates retained; ESPN metadata returned one player-specific Sam Hauser viewing link. Source timestamps are preserved; stale game logs will be refreshed when the worker is permitted to run.
+- Automatic approval review rejected starting the live worker because the specific league/footage payload and Meta destination require approval before paid requests. No worker was started and no new paid scan was enqueued. The reviewable six-call verification plan is in ignored `data/cache/live-workflow-verification-plan.json`.
+- Remaining external input: a current footage source with processing permission is needed for automatic video acquisition beyond existing authorized uploads. The source question is pending; no public video download permission was invented.
+
+## November 4: approved public footage and bounded live verification
+
+- User chose recent public ESPN/social clips for private analysis and explicitly approved the one-candidate, six-call Sam Hauser verification. Public ESPN import is enabled only in ignored local `.env`; the example defaults off. No publisher license is inferred from this preference.
+- Added direct public ESPN MP4 acquisition with exact player metadata matching, recent game dates, bounded excerpts, attribution and visual-verification status. Auth/DRM/rate-limit restrictions are not bypassed. A five-second November 1 Hauser clip was downloaded and inspected locally with zero model calls, then made available in the main film library for future scans. Dated public sources take priority over undated legacy uploads in this mode.
+- Approved scan `851f03c574bc422faf73f4c1ca4b0ae0` completed with **5 actual Meta calls** under its original six-call cap: scout, visible identity verification, SAM tracking, critic and decision. It used the approved existing four-second upload. No paid image request, automatic paid retry, transaction, push or deployment occurred.
+- Automatic source refresh completed: 40 bounded Sportradar requests, complete persisted game logs, confirmed rules retained. Sleeper membership/scoring refresh also succeeded. The scan keeps original source timestamps and its frozen inputs.
+- The first scout call conflated player inspection with a strong-add decision. Exact named inspection requests now select that player deterministically without a scouting call. The original scout output remains in the checkpoint; continuation stayed in the same accumulated budget.
+- The decision response put sourced-statistics identifiers (`minutes`, `recent_fantasy_average`) in the film-metric reference field. Strict validation rejected them. Unsupported interpretations now yield a conservative MONITOR/withheld report, zero claimed verdict confidence and no move. Raw output and warnings remain auditable. This case was recovered from cached outputs with the process cap set to the five calls already used, preventing additional paid requests.
+- Decision prompts now supply per-player allowed film-metric names. Underlying strict validation still rejects unsupported metric references directly; missing metrics are never invented or converted to measurements.
+- Final result: one Sam Hauser report, accepted identity check, stored tracking and an available screen-space defender-distance proxy; no roster move recommended. This verifies live execution and conservative handling, not fantasy prediction accuracy.
+- Final validation: **161 backend tests, 24 frontend tests and production build passed**. Actual public download and source provenance were also checked. Idle live worker and API are running; zero pending jobs and scheduling off were verified before worker startup. Future scans require an explicit app action and retain the one-candidate/six-call limit.
+- Evidence is ignored under `data/cache/`: `approved-live-scan.json`, `live-workflow-result.json`, `public-footage-check.json`, and the updated verification plan. The original checkout and credentials remain preserved.
+
+## November 4: backend completion review
+
+- Completed dated jersey/team roster matching, per-player sourced statistics, independently reviewed tracking and guarded recommendations. Automatic alternative-clip evaluation shares identity verification and reserves the final report within the accumulated six-call live profile.
+- The real Sam Hauser fallback scan used four of six calls and switched from 0–5 seconds to 11–16 seconds of the same ESPN highlight. Neither excerpt supplied reliable measurements; the final MONITOR report withheld unsupported film evidence and staged no move. Details and remaining coverage limits are in `docs/AUTOMATIC_SCANNING.md`.
+- Review fixed overlapping alternatives prematurely ending discovery and repeated imports leaving unused normalized videos. Regression tests cover a later distinct clip and idempotent imports that preserve the retained media.
+- Final checks: **225 backend tests, 35 frontend tests, TypeScript/Vite production build, Python/frontend formatting, dependency validation, shell syntax and whitespace checks passed**. One upstream Starlette TestClient deprecation warning remains. No additional paid model requests ran during this review.
+- The completed code, supporting interface, tests and documentation are prepared on the isolated `feature/backend` worktree. Local Codex configuration remains untracked; credentials, databases, source footage and runtime audits remain ignored and preserved. No merge or push is part of this work.
