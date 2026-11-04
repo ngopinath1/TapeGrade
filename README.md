@@ -290,10 +290,11 @@ MAX_SAM_RETRIES=2
 MAX_LIVE_MODEL_CALLS_PER_SCAN=15
 ```
 
-Restart **both** the API and worker. `DEMO_MODE` controls the **league data**;
-`MOCK_MODELS` independently controls **model inference**. Therefore real models can
-analyze permitted film while the league and statistics remain explicitly fictional.
-`DEMO_MODE=0` refuses scans until a supported live basketball data source is added.
+Restart **both** the API and worker. `MOCK_MODELS` controls model inference;
+`DEMO_MODE=1` permits sample-league scans. The selected league workspace is saved
+separately in SQLite. Real models can analyze the clearly labeled sample league,
+and a Sleeper roster can be viewed without invoking any Meta model. Connected NBA
+recommendations remain disabled until recent unrostered-player statistics are added.
 
 1. Verify your account can access the three model IDs. Default API origin:
    `https://api.meta.ai` (`/v1` is appended by the transport).
@@ -353,21 +354,50 @@ of an entire game. These are decision-support signals, not validated predictions
 ## Sleeper integration
 
 [Sleeper's official documentation](https://docs.sleeper.com/#get-all-leagues-for-user)
-documents NFL-only league discovery. Implemented reads are:
+lists NFL-only automatic league discovery. On November 4, direct documented
+league-ID, roster, user, player-map and matchup reads successfully returned actual
+NBA data for a user-supplied league. TapeGrade labels this **observed NBA compatibility**,
+not a guarantee of officially supported NBA discovery. Implemented reads are:
 
 - `GET /v1/user/{username}`
 - `GET /v1/user/{user_id}/leagues/nfl/{season}`
 - `GET /v1/league/{league_id}`
 - `GET /v1/league/{league_id}/rosters`
 - `GET /v1/league/{league_id}/users`
+- `GET /v1/players/nba` (the documented `/players/{sport}` route)
+- `GET /v1/league/{league_id}/matchups/{period}`
 
-The connection dialog looks up an actual public account, lists actual NFL leagues,
-and can read their manager/roster counts. It does not turn those into basketball
-data. Empty accounts, missing leagues, unsupported sports and rate limits produce
-clear messages. Read results are cached for five minutes. No authentication token
-is required. Sleeper's documentation also describes API licensing terms; review
-them before commercial use. No transaction endpoint or transaction-submission code
-exists in TapeGrade.
+To connect an NBA league:
+
+1. Click **Connect Sleeper**, enter your username and the numeric **NBA league ID**
+   from its URL, then click **Connect NBA league**. No password or API key is needed.
+2. TapeGrade verifies roster ownership/co-ownership, imports the actual player names,
+   positions, teams, lineup/injury labels, scoring weights and reported period points,
+   then opens **My roster**. The connection survives API/browser restarts.
+3. **PERIOD N FPTS** are the values returned in Sleeper's matchup `players_points`.
+   Team points use the API's reported total/custom override. These are not season
+   averages, recent per-game production or projections. Zero is preserved only when
+   reported; missing points stay unavailable. No raw box-score or bonus calculation
+   is inferred from these totals.
+4. Use **Connect Sleeper → Refresh league** to refresh. Account/league reads cache
+   for five minutes; the player directory is cached on disk for 24 hours as requested
+   by the documentation. No Meta requests occur during connection or refresh.
+5. Use **Continue with the sample NBA league** in that dialog to return to the full
+   mock/scouting demonstration. Each workspace keeps its own history, watchlist and
+   guardrails. Existing jobs keep the guardrails of their original league.
+
+The unrostered pool excludes every team's players/reserves/taxi entries and includes
+only active players with a returned team. This is roster-derived availability, not
+proof of waiver eligibility. Recent minutes, box scores and trends are unavailable.
+**Recommendation scans for this connection are blocked before any model call**
+until a verified recent-statistics feed is added. Mock models cannot fabricate
+numbers or recommendations for the connected real roster. Scheduling also skips it.
+
+Leaving the league ID blank retains public account/NFL league discovery and view-only
+NFL reads. Missing users, mismatched ownership, malformed responses, unsupported
+sports and rate limits produce explicit errors. Failed matchup reads preserve roster
+access while marking points unavailable. API licensing terms apply; no transaction
+submission endpoint or code exists.
 
 ## Jobs, recovery and schedules
 
@@ -464,11 +494,13 @@ uploads, tracking overlays, defensible proxies, guarded recommendations, watchli
 history, PNGs, actual documented clients, supported Sleeper reads, local scheduler,
 offline tests and smoke script.
 
-**Simulated in default mode:** every player/statistic, the sample film scene, model
+**Simulated in a fresh sample workspace with mock models:** every player/statistic, the sample film scene, model
 reasoning, tracks, identity swap and correction, and card artwork. Labels remain
-visible. Switching models to live does not create a real NBA statistics provider.
+visible. A connected Sleeper roster remains actual provider data even with mock
+models; it cannot be scanned with fabricated statistics. Switching models to live
+does not add the missing recent box-score feed.
 
-**Not included:** live NBA data licensing/provider, official NBA tracking metrics,
+**Not included:** a recent NBA box-score/statistics feed for live recommendations, official NBA tracking metrics,
 reliable shot/defensive action detection, category scoring, public hosting,
 authentication/multi-user isolation, Modal deployment, external notifications,
 YouTube discovery/downloads, and real transactions. `YOUTUBE_API_KEY` is reserved;

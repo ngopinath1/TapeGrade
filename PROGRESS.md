@@ -1,6 +1,6 @@
 # TapeGrade progress
 
-Last verified: November 3, 2026, America/New_York.
+Last verified: November 4, 2026, America/New_York.
 
 ## Completed milestones
 
@@ -28,9 +28,8 @@ Last verified: November 3, 2026, America/New_York.
 
 ## Verified results
 
-- **57 backend tests passed** on Python 3.12.14; affected diagnostic/route checks
-  rerun after the final local changes.
-- **6 frontend tests passed**; TypeScript and Vite production build passed.
+- **65 backend tests passed** on Python 3.12.14.
+- **7 frontend tests passed**; TypeScript and Vite production build passed.
 - One upstream Starlette TestClient deprecation warning; no test failures.
 - Offline end-to-end HTTP fixture exercises all three actual clients, with 8 accounted fixture calls.
   Actual critic output changes SAM from frame-0 to frame-6 spatial guidance. This is not paid inference.
@@ -58,9 +57,11 @@ Last verified: November 3, 2026, America/New_York.
    and no fantasy move was generated. Validate broader footage and licensed player
    statistics before claiming current fantasy scouting accuracy. Do not run paid
    tests automatically.
-2. **Live NBA provider unavailable.** Sleeper documents NFL league discovery. Both
-   inference modes use the clearly fictional basketball league; DEMO_MODE=0 refuses
-   scans until a supported basketball provider is added.
+2. **Recent NBA candidate statistics unavailable.** Direct Sleeper NBA roster,
+   scoring and reported period-point import works for the tested league. This is
+   observed compatibility by ID, while automatic discovery is documented NFL-only.
+   Minutes, box scores and recent candidate trends are missing. Connected-league
+   recommendation scans are blocked before model use until that feed is added.
 3. Shot/defensive action detection, calibration and category scoring are future work.
 4. Original sample footage is schematic, not a real-game benchmark. Mock models reject
    uploaded-footage identity verification rather than fabricate an analysis.
@@ -75,6 +76,8 @@ Read README.md and docs/API_CONTRACTS.md. Dependencies are already installed her
 From the project root run `bash scripts/dev.sh`, then open http://localhost:5173.
 The README also provides separate API, worker and frontend commands.
 Use “Find me an undervalued guard.” and default guardrails for the expected $8 move.
+If the saved workspace is Sleeper, first use Connect Sleeper → Continue with the
+sample NBA league to return to the full sample scouting workflow.
 
 After code changes:
 
@@ -111,6 +114,12 @@ With all three services running in mock mode:
   detected. `.env`, source footage, generated cards/overlays, local reports and
   SQLite databases are excluded. Only the two original mock UI screenshots are
   binary repository assets. Local runtime data is not part of the Git snapshot.
+- On November 4 the user explicitly approved publishing the Sleeper integration
+  and `handoff.md` to the same private repository's `main` branch. The prepared
+  snapshot contains both; read `git log -1` for its resulting commit. A new audit
+  covered 92 publishable files, including the configured-key comparison, with no
+  secrets detected. Live connection data, databases, footage and generated media
+  remain excluded.
 
 ## November 3: minimal live check and clip discovery
 
@@ -186,3 +195,59 @@ With all three services running in mock mode:
   Frontend test confirms diagnostics show no invented statistics or transaction.
 - Still no public deployment, new Git push, external fantasy transaction or full
   20-minute analysis. No additional inference is needed to view/replay/download.
+
+## November 4: actual Sleeper NBA connection
+
+- User supplied a username and NBA league ID. The documented generic user,
+  league-ID, roster, league-user, `/players/{sport}` and matchup resource paths
+  returned HTTP 200. No guessed NBA discovery or undocumented statistics route was
+  used. Official discovery documentation remains NFL-only; the app labels direct
+  NBA-by-ID access as observed compatibility.
+- Retrieved an eight-team NBA league, its owned 14-player roster, jersey/team/position
+  metadata, scoring weights, starters/bench/injury labels and period-3 fantasy points.
+  API-reported team points: **195**. Example returned player totals: Mitchell 24.5,
+  Towns 24, Kessler 28.5. These are period totals, not per-game averages/projections.
+- Imported 443 active, assigned-team players absent from every roster/reserve/taxi
+  list as the unrostered pool. This does not guarantee waiver eligibility. No minutes,
+  recent raw box scores or statistical trends were returned; they remain null/empty.
+- Added a persisted Workspace selector, ownership-verified read-only NBA import,
+  namespaced Player IDs, League and RosterSnapshot persistence, and a sample switch.
+  The existing SQLite database was backed up locally before the additive table
+  initialization. No existing table/record was dropped and `.env` was unchanged.
+- Guardrails, watchlist views and scan history follow the selected league. A queued
+  job retains its original league's guardrails even after the active workspace changes.
+  Refreshing a connection preserves that league's protections and bid limits.
+- Real-roster recommendation scans are disabled in the UI and return **HTTP 409**
+  before enqueue/inference until recent candidate statistics exist. Scheduling skips
+  this incomplete source. The connected roster is never routed through mock models
+  to invent statistics. The complete original sample scan remains available.
+- Player directory persisted for 24-hour reuse; league/account/matchup reads use
+  five-minute caches. The initial real directory response was reused for the first
+  app import rather than downloading it twice. Cache writes are atomic.
+- **65 backend tests, 7 frontend tests and production build passed.** Eight new
+  backend cases cover documented paths, actual-point semantics, zero versus missing,
+  ownership, malformed inputs, reserve exclusions, cross-process directory cache,
+  SQLite persistence and workspace/job/guardrail isolation. A UI test connects an NBA
+  fixture and checks labels, absent trends and disabled recommendations.
+- Browser used the actual connect form, displayed all 14 rows and the 195-point
+  summary, then reloaded successfully into the saved league. Live API smoke through
+  Vite confirmed connected health, an empty per-league scan history and a 409 guard
+  with **zero new jobs and zero model calls**. Total model-call rows stayed at 26.
+- Receipt/cache/SQLite backup and screenshot are under ignored `data/cache/sleeper/`;
+  screenshot `connected-roster.jpg`, HTTP smoke `smoke.json`. Account/league identifiers
+  are saved only in local data, not hardcoded into source or environment examples.
+- API, frontend and worker remain running with scheduling disabled. No deployment
+  or paid data-provider request was made. The integration is included in the
+  November 4 user-approved publication snapshot described above.
+
+## November 4: next-chat handoff
+
+- Created root `handoff.md` with the current working state and Sleeper changes,
+  local run/check commands, known real-scan integration gaps and an ordered statistics,
+  identity mapping, scoring, film and staging implementation plan.
+- Rechecked official statistics-provider access/pricing and Sleeper scoring/format
+  documentation. Provider field coverage, exact bonus rules, basketball game mode,
+  FAAB applicability and a qualifying candidate's film remain important preconditions.
+- No statistics subscription/key/trial was created and no new Meta inference was
+  requested. This documentation turn did not change product code, restart services,
+  commit, push or deploy. Existing test results remain the last executed validation.

@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import settings
 from backend.db.database import initialize
 from backend.services.state import seed_demo
+from backend.services.state import get_league
 from backend.api.routes import router
 
 
@@ -38,5 +39,5 @@ def health():
     return {
         "status": "ok",
         "models": "mock" if settings.mock_models else "live",
-        "demo_league": settings.demo_mode,
+        "demo_league": get_league().get("is_demo", True),
     }

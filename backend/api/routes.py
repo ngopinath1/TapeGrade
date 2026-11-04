@@ -12,6 +12,7 @@ from backend.db.database import session_scope
 from backend.db.schema import (
     Clip,
     GuardrailSettings,
+    League,
     JobEvent,
     Player,
     ScanRun,
@@ -19,7 +20,7 @@ from backend.db.schema import (
     Watchlist,
 )
 from backend.services.clips import inspect_video, local_path, prepare_clip
-from backend.services.state import get_guardrails, get_league
+from backend.services.state import get_guardrails, get_league, save_league, select_demo
 from backend.worker.scan import enqueue
 from backend.models.base import ModelError
 from backend.providers.sleeper import ProviderError, SleeperLeagueProvider
@@ -32,14 +33,24 @@ sleeper = SleeperLeagueProvider()
 class SleeperRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     season: int | None = Field(None, ge=2017, le=2100)
+    league_id: str | None = Field(None, pattern=r"^\d{1,30}$")
 
 
 @router.post("/sleeper/connect")
 def sleeper_connect(value: SleeperRequest):
     try:
-        return sleeper.connect(value.username, value.season)
+        result = sleeper.connect(value.username, value.season, value.league_id)
+        if result.get("connected"):
+            result["snapshot"] = save_league(result["snapshot"])
+        return result
     except ProviderError as e:
         raise HTTPException(422, str(e))
+
+
+@router.post("/workspace/demo")
+def use_demo_workspace():
+    select_demo()
+    return {"league_id": "demo-nba"}
 
 
 @router.get("/sleeper/leagues/{league_id}")
@@ -52,14 +63,16 @@ def sleeper_league(league_id: str):
 
 @router.get("/bootstrap")
 def bootstrap():
+    league = get_league()
     with session_scope() as s:
-        watch = [r.player_id for r in s.scalars(select(Watchlist))]
+        ids = {p["id"] for p in league["roster"] + league["available"]}
+        watch = [r.player_id for r in s.scalars(select(Watchlist)) if r.player_id in ids]
     return {
-        "league": get_league(),
+        "league": league,
         "settings": get_guardrails().model_dump(),
         "watchlist": watch,
         "models_mode": "mock" if settings.mock_models else "live",
-        "demo_mode": settings.demo_mode,
+        "demo_mode": league.get("is_demo", True),
         "scheduler_available": settings.scheduler_enabled,
         "credentials_configured": bool(settings.model_api_key.get_secret_value()),
         "limits": {
@@ -78,13 +91,20 @@ def read_settings():
 
 @router.put("/settings")
 def save_settings(value: Guardrails):
-    roster_ids = {p["id"] for p in get_league()["roster"]}
+    league = get_league()
+    roster_ids = {p["id"] for p in league["roster"]}
     if not set(value.protected_players) <= roster_ids:
         raise HTTPException(422, "Protected players must be on the current roster.")
     with session_scope() as s:
-        s.get(GuardrailSettings, "local").data = value.model_dump()
+        if league.get("is_demo", True):
+            s.get(GuardrailSettings, "local").data = value.model_dump()
+        else:
+            row = s.get(League, league["id"])
+            row.data = {**row.data, "guardrails": value.model_dump()}
         # A saved recommendation cannot bypass a newly tightened guardrail.
-        for row in s.scalars(select(ScanRun).where(ScanRun.stage == "COMPLETED")):
+        for row in s.scalars(
+            select(ScanRun).where(ScanRun.stage == "COMPLETED", ScanRun.league_id == league["id"])
+        ):
             if not row.result or not row.result.get("staged_move"):
                 continue
             result = dict(row.result)
@@ -131,16 +151,22 @@ def scan_json(row):
 
 @router.get("/scans")
 def history():
+    league_id = get_league()["id"]
     with session_scope() as s:
         return [
             scan_json(r)
-            for r in s.scalars(select(ScanRun).order_by(ScanRun.created_at.desc()).limit(30))
+            for r in s.scalars(
+                select(ScanRun)
+                .where(ScanRun.league_id == league_id)
+                .order_by(ScanRun.created_at.desc())
+                .limit(30)
+            )
         ]
 
 
 @router.post("/scans", status_code=202)
 def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
-    if not settings.demo_mode:
+    if not settings.demo_mode and get_league().get("is_demo", True):
         raise HTTPException(
             409,
             "No supported live NBA league provider is configured. Enable DEMO_MODE=1 to use the clearly labeled sample league with mock or live models.",
@@ -153,7 +179,12 @@ def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
     if idempotency_key and len(idempotency_key) > 100:
         raise HTTPException(422, "Idempotency key too long.")
     with session_scope() as s:
-        active = s.scalar(select(ScanRun).where(ScanRun.stage.notin_(("COMPLETED", "FAILED"))))
+        active = s.scalar(
+            select(ScanRun).where(
+                ScanRun.stage.notin_(("COMPLETED", "FAILED")),
+                ScanRun.league_id == get_league()["id"],
+            )
+        )
         if active:
             return {"id": active.id, "existing": True}
     try:

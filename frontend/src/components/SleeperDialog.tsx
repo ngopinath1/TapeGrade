@@ -10,8 +10,17 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 
-export function SleeperDialog({ close }: { close: () => void }) {
-  const [username, setUsername] = useState(""),
+export function SleeperDialog({
+  close,
+  onConnected,
+  connection,
+}: {
+  close: () => void;
+  onConnected: () => Promise<void>;
+  connection?: { username: string; league_id: string };
+}) {
+  const [username, setUsername] = useState(connection?.username ?? ""),
+    [leagueId, setLeagueId] = useState(connection?.league_id ?? ""),
     [result, setResult] = useState<Record<string, unknown> | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
@@ -42,9 +51,9 @@ export function SleeperDialog({ close }: { close: () => void }) {
         </div>
         <h2 id="sleeper-title">Find your Sleeper account.</h2>
         <p>
-          Public account lookup and documented NFL league data are supported.
-          Sleeper documents NFL-only league discovery, so TapeGrade cannot
-          import a live basketball roster.
+          Enter your username and NBA league ID to import your actual roster,
+          scoring rules and reported period points. NBA access is verified by
+          league ID; automatic league discovery is documented for NFL only.
         </p>
         <form
           onSubmit={async (e) => {
@@ -52,12 +61,21 @@ export function SleeperDialog({ close }: { close: () => void }) {
             setLoading(true);
             setError("");
             try {
-              setResult(
-                await api("/sleeper/connect", {
+              const response = await api<Record<string, unknown>>(
+                "/sleeper/connect",
+                {
                   method: "POST",
-                  body: JSON.stringify({ username }),
-                }),
+                  body: JSON.stringify({
+                    username,
+                    ...(leagueId ? { league_id: leagueId } : {}),
+                  }),
+                },
               );
+              setResult(response);
+              if (response.connected) {
+                await onConnected();
+                close();
+              }
             } catch (err) {
               setError((err as Error).message);
             } finally {
@@ -74,13 +92,28 @@ export function SleeperDialog({ close }: { close: () => void }) {
               placeholder="your_username"
             />
           </label>
+          <label>
+            NBA league ID
+            <input
+              value={leagueId}
+              onChange={(e) => setLeagueId(e.target.value.trim())}
+              inputMode="numeric"
+              pattern="[0-9]{1,30}"
+              maxLength={30}
+              placeholder="From your Sleeper league URL"
+            />
+          </label>
           <button className="button primary" disabled={loading}>
             {loading ? (
               <Loader2 size={16} className="spin" />
             ) : (
               <Search size={16} />
             )}
-            Look up account
+            {leagueId
+              ? connection
+                ? "Refresh league"
+                : "Connect NBA league"
+              : "Look up account"}
           </button>
         </form>
         {error && <p className="inline-error">{error}</p>}
@@ -147,7 +180,18 @@ export function SleeperDialog({ close }: { close: () => void }) {
         >
           Read Sleeper API limitations <ExternalLink size={12} />
         </a>
-        <button className="button subtle full" onClick={close}>
+        <button
+          className="button subtle full"
+          onClick={async () => {
+            try {
+              await api("/workspace/demo", { method: "POST" });
+              await onConnected();
+              close();
+            } catch (err) {
+              setError((err as Error).message);
+            }
+          }}
+        >
           Continue with the sample NBA league <ArrowRight size={15} />
         </button>
       </section>

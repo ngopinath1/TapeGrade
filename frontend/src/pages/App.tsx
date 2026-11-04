@@ -117,7 +117,11 @@ export default function App() {
           </span>
           <div>
             {data.league.name}
-            <small>Sample NBA · Points</small>
+            <small>
+              {data.league.is_demo === false
+                ? "Sleeper NBA · Period points"
+                : "Sample NBA · Points"}
+            </small>
           </div>
           <ChevronDown size={14} />
         </div>
@@ -148,7 +152,9 @@ export default function App() {
               <small>
                 {data.models_mode === "mock"
                   ? "No API credits used"
-                  : "Real Meta calls · sample league"}
+                  : data.league.is_demo === false
+                    ? "Real Meta models · Sleeper data"
+                    : "Real Meta calls · sample league"}
               </small>
             </span>
           </div>
@@ -180,7 +186,11 @@ export default function App() {
           <div className="top-actions">
             <span className={`mode-pill ${data.models_mode}`}>
               <span />
-              {data.models_mode === "mock" ? "DEMO MODE" : "LIVE MODELS"}
+              {data.models_mode === "mock"
+                ? data.league.is_demo === false
+                  ? "MOCK MODELS"
+                  : "DEMO MODE"
+                : "LIVE MODELS"}
             </span>
             <button
               className="button connect"
@@ -261,10 +271,18 @@ export default function App() {
                     <Radar size={19} />
                   </span>
                   <div>
-                    <small>FREE AGENT POOL</small>
+                    <small>
+                      {data.league.is_demo === false
+                        ? "UNROSTERED POOL"
+                        : "FREE AGENT POOL"}
+                    </small>
                     <strong>
                       {data.league.available.length}
-                      <span> sample players</span>
+                      <span>
+                        {data.league.is_demo === false
+                          ? " active players"
+                          : " sample players"}
+                      </span>
                     </strong>
                   </div>
                 </div>
@@ -285,14 +303,33 @@ export default function App() {
                     <Zap size={18} />
                   </span>
                   <div>
-                    <small>FAAB REMAINING</small>
+                    <small>
+                      {data.league.is_demo === false
+                        ? "WAIVER BUDGET"
+                        : "FAAB REMAINING"}
+                    </small>
                     <strong>
-                      ${data.league.faab_remaining}
-                      <span> / $100</span>
+                      {data.league.faab_remaining === null
+                        ? "Unavailable"
+                        : `$${data.league.faab_remaining}`}
+                      {data.league.is_demo !== false && <span> / $100</span>}
                     </strong>
                   </div>
                 </div>
               </div>
+              {data.league.is_demo === false && (
+                <div className="worker-note">
+                  <b>{data.league.name} connected.</b> Your roster, scoring
+                  rules and reported period points are live Sleeper data.{" "}
+                  {data.league.scouting_unavailable_reason}{" "}
+                  <button
+                    className="text-link"
+                    onClick={() => setPage("roster")}
+                  >
+                    View my roster <ArrowRight size={13} />
+                  </button>
+                </div>
+              )}
               <form
                 className="scout-input"
                 onSubmit={async (e) => {
@@ -326,7 +363,10 @@ export default function App() {
                   <br />
                   <b>Muse Spark</b>
                 </span>
-                <button className="button primary scan-button" disabled={busy}>
+                <button
+                  className="button primary scan-button"
+                  disabled={busy || data.league.scouting_ready === false}
+                >
                   {busy ? (
                     <Loader2 size={17} className="spin" />
                   ) : (
@@ -348,11 +388,13 @@ export default function App() {
                         : "Ready when you are"}
                 </span>
                 <span>
-                  {(scan?.mode ?? data.models_mode) === "mock"
-                    ? "Simulated models, fictional players & original schematic film"
-                    : scan?.result?.film_test
-                      ? "Real Meta inference · film diagnostic · no fantasy statistics"
-                      : "Real Meta inference · fictional sample league statistics"}
+                  {data.league.is_demo === false
+                    ? "Real Sleeper roster · period points · recent statistics unavailable"
+                    : (scan?.mode ?? data.models_mode) === "mock"
+                      ? "Simulated models, fictional players & original schematic film"
+                      : scan?.result?.film_test
+                        ? "Real Meta inference · film diagnostic · no fantasy statistics"
+                        : "Real Meta inference · fictional sample league statistics"}
                 </span>
                 {scan?.stage === "FAILED" && (
                   <button
@@ -519,15 +561,28 @@ export default function App() {
             <span>
               SAM 3.1 <i>×</i> Muse Spark <i>×</i> Muse Image{" "}
               <span className="footer-separator">/</span>{" "}
-              {(scan?.mode ?? data.models_mode) === "mock"
-                ? "Simulated demo report"
-                : "Live model report"}{" "}
+              {data.league.is_demo === false
+                ? "Sleeper roster · recommendations pending statistics"
+                : (scan?.mode ?? data.models_mode) === "mock"
+                  ? "Simulated demo report"
+                  : "Live model report"}{" "}
               · Human-approved moves
             </span>
           </footer>
         </main>
       </div>
-      {connecting && <SleeperDialog close={() => setConnecting(false)} />}{" "}
+      {connecting && (
+        <SleeperDialog
+          connection={data.league.connection}
+          close={() => setConnecting(false)}
+          onConnected={async () => {
+            await refresh(true);
+            setSelected("");
+            setPage("roster");
+            setToast("League workspace updated.");
+          }}
+        />
+      )}{" "}
       {toast && (
         <div role="status" className="toast">
           <Check size={17} />

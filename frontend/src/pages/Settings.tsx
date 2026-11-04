@@ -133,12 +133,16 @@ export function Settings({
           <h3>Models & data</h3>
           <p>
             Models: <b>{data.models_mode.toUpperCase()}</b> · League:{" "}
-            <b>FICTIONAL NBA SAMPLE</b>
+            <b>
+              {data.league.is_demo === false
+                ? "LIVE SLEEPER NBA"
+                : "FICTIONAL NBA SAMPLE"}
+            </b>
           </p>
           <p>
             Change MOCK_MODELS in the backend environment and restart API +
-            worker. Credentials stay on the backend. Live basketball league
-            discovery is unavailable in Sleeper’s documented public API.
+            worker. Credentials stay on the backend. NBA leagues can be imported
+            by ID where compatible; automatic NBA discovery is not documented.
           </p>
           <p>
             {data.limits.candidates} candidates · up to {data.limits.retries}{" "}

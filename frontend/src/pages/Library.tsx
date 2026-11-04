@@ -57,7 +57,8 @@ export function Library({
           <select name="player_id">
             {data.league.available.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} · fictional demo player
+                {p.name} ·{" "}
+                {p.is_demo ? "fictional demo player" : "Sleeper player"}
               </option>
             ))}
           </select>
@@ -75,9 +76,9 @@ export function Library({
         </label>
         <p className="data-note">
           Mock models cannot verify real footage. Live mode sends this clip and
-          selected frames to Meta for analysis. The sample identities are
-          fictional; use matching permitted footage or update the demo player
-          metadata first.
+          selected frames to Meta for analysis. Target identity must match
+          visible evidence. Sample-league identities are fictional; Sleeper
+          identities come from the player directory.
         </p>
         <button className="button primary" disabled={uploading}>
           {uploading ? (

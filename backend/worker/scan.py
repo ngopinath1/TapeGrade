@@ -47,11 +47,17 @@ TERMINAL = ("COMPLETED", "FAILED")
 
 def enqueue(instruction, source="manual", request_key=None, factory=None):
     with session_scope(factory) as s:
+        league = get_league(factory)
         if request_key:
             existing = s.scalar(select(ScanRun).where(ScanRun.request_key == request_key))
             if existing:
+                if existing.league_id != league["id"]:
+                    raise ModelError(
+                        "Idempotency key belongs to a different league. Use a new key."
+                    )
                 return existing.id
-        league = get_league(factory)
+        if not league.get("is_demo", True) and not league.get("scouting_ready", False):
+            raise ModelError(league["scouting_unavailable_reason"])
         if not settings.mock_models:
             available = players_with_permitted_clips(league, factory)
             if not available:
@@ -60,7 +66,7 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
                 )
             league = {**league, "available": available}
         run = ScanRun(
-            league_id="demo-nba",
+            league_id=league["id"],
             instruction=instruction,
             mode="mock" if settings.mock_models else "live",
             source=source,
@@ -110,6 +116,7 @@ class Job:
         with session_scope(factory) as s:
             run = s.get(ScanRun, scan_id)
             self.mode, self.instruction, self.cp = run.mode, run.instruction, dict(run.checkpoint)
+            self.league_id = run.league_id
 
     def heartbeat(self):
         with session_scope(self.factory) as s:
@@ -475,7 +482,7 @@ def process(scan_id, token, factory=None):
         )
         candidates = job.cp["candidates"]
         decision, staged = DecisionAgent(spark).decide(
-            job.instruction, league, candidates, get_guardrails(factory)
+            job.instruction, league, candidates, get_guardrails(factory, job.league_id)
         )
         for c in candidates:
             c["verdict"] = next(
@@ -522,7 +529,7 @@ def process(scan_id, token, factory=None):
             decision,
             candidates,
             league["roster"],
-            get_guardrails(factory),
+            get_guardrails(factory, job.league_id),
             league["faab_remaining"],
         )
         result = {

@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from backend.config import settings
-from backend.services.state import get_guardrails
+from backend.services.state import get_guardrails, get_league
 
 TZ = ZoneInfo("America/New_York")
 
@@ -17,7 +17,10 @@ def scheduled_scan(slot="nightly"):
     guardrails = get_guardrails()
     if not settings.scheduler_enabled or not guardrails.schedule_enabled:
         return None
-    key = f"{slot}:{datetime.now(TZ).date().isoformat()}"
+    league = get_league()
+    if not league.get("is_demo", True) and not league.get("scouting_ready", False):
+        return None
+    key = f"{league['id']}:{slot}:{datetime.now(TZ).date().isoformat()}"
     return enqueue(
         "Find the best opportunity for my roster before waivers.",
         source="schedule",

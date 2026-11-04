@@ -43,7 +43,7 @@ def test_sleeper_errors(status, data, match):
 def test_sleeper_rejects_unsupported_sport():
     p = SleeperLeagueProvider(
         httpx.Client(
-            transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"sport": "nba"}))
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"sport": "mlb"}))
         )
     )
     with pytest.raises(ProviderError, match="sport"):

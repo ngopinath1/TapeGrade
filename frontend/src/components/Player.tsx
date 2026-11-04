@@ -8,6 +8,7 @@ export function Sparkline({
   values: number[];
   muted?: boolean;
 }) {
+  if (values.length < 2) return <span className="muted">Unavailable</span>;
   const min = Math.min(...values) - 2,
     max = Math.max(...values) + 2;
   const pts = values

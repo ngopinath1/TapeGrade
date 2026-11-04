@@ -11,6 +11,9 @@ export type Player = {
   source: string;
   is_demo: boolean;
   film_only?: boolean;
+  external_id?: string;
+  lineup_status?: string;
+  injury_status?: string | null;
   stats: Record<string, number>;
 };
 export type Guardrails = {
@@ -26,7 +29,24 @@ export type League = {
   team_name: string;
   standing: string;
   record: string;
-  faab_remaining: number;
+  faab_remaining: number | null;
+  is_demo?: boolean;
+  season?: string;
+  provider?: string;
+  period?: number | null;
+  period_points?: number | null;
+  points_warning?: string | null;
+  scoring?: { type: string; weights: Record<string, number> };
+  connection?: {
+    username: string;
+    league_id: string;
+    user_id: string;
+    roster_id: number;
+  };
+  fetched_at?: string;
+  compatibility?: string;
+  scouting_ready?: boolean;
+  scouting_unavailable_reason?: string;
   roster: Player[];
   available: Player[];
   notice: string;

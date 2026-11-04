@@ -38,6 +38,12 @@ class Player(Base):
     data: Mapped[dict] = mapped_column(JSON)
 
 
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    active_league_id: Mapped[str] = mapped_column(ForeignKey("leagues.id"))
+
+
 class RosterSnapshot(Base):
     __tablename__ = "roster_snapshots"
     id: Mapped[str] = mapped_column(primary_key=True, default=uid)

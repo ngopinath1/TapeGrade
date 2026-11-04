@@ -8,7 +8,7 @@ export function useDashboard() {
   const [scan, setScan] = useState<Scan | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (resetWorkspace = false) => {
     try {
       const [bootstrap, scans] = await Promise.all([
         api<Bootstrap>("/bootstrap"),
@@ -16,7 +16,13 @@ export function useDashboard() {
       ]);
       setData(bootstrap);
       setHistory(scans);
-      setScanId((current) => current ?? scans[0]?.id ?? null);
+      if (resetWorkspace) {
+        setScan(null);
+        setError("");
+      }
+      setScanId(
+        (current) => (resetWorkspace ? null : current) ?? scans[0]?.id ?? null,
+      );
     } catch (e) {
       setError((e as Error).message);
     }
