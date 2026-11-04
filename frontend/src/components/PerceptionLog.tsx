@@ -1,4 +1,4 @@
-import { Fingerprint, Activity, Target, Sparkles } from "lucide-react";
+import { Activity, Target, Sparkles } from "lucide-react";
 import type { Candidate, Scan } from "../types";
 import { percent } from "../lib/api";
 
@@ -15,17 +15,18 @@ export function PerceptionLog({
   return (
     <section className="panel perception-panel">
       <div className="panel-head">
-        <div className="section-label">
-          <Fingerprint size={15} /> PERCEPTION LOOP
-        </div>
+        <div className="section-label">Tracking audit</div>
         <span className="tag">
           <span className="live-dot" />{" "}
           {scan?.mode === "live" ? "Actual operations" : "Simulated example"}
         </span>
       </div>
       <div className="log-intro">
-        <h2>An agent that checks its own eyes.</h2>
-        <p>SAM tracks. Muse Spark critiques. The prompt gets smarter.</p>
+        <h2>How the tracking was checked</h2>
+        <p>
+          Tracking attempts, quality checks, and any corrections made during
+          this scan.
+        </p>
       </div>
       {events.length ? (
         <div className="log-list">

@@ -1,21 +1,44 @@
-import { Users, LockKeyhole } from "lucide-react";
+import { useState } from "react";
+import { LockKeyhole, Search, X } from "lucide-react";
 import type { Bootstrap } from "../types";
-import { Sparkline, Avatar } from "./Player";
+import { Sparkline } from "./Player";
 
-export function Roster({ data }: { data: Bootstrap }) {
+export function Roster({
+  data,
+  onManageProtections,
+}: {
+  data: Bootstrap;
+  onManageProtections?: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [protectedOnly, setProtectedOnly] = useState(false);
+  const players = data.league.roster.filter(
+    (p) =>
+      (!protectedOnly || data.settings.protected_players.includes(p.id)) &&
+      `${p.name} ${p.team} ${p.positions.join(" ")}`
+        .toLowerCase()
+        .includes(query.toLowerCase().trim()),
+  );
   const live = data.league.is_demo === false;
   return (
-    <section className="panel roster-panel">
+    <section className="roster-panel">
       <div className="panel-head">
-        <div className="section-label">
-          <Users size={15} /> {data.league.team_name.toUpperCase()}
-        </div>
+        <h2 className="roster-team-name">{data.league.team_name}</h2>
         <span className="tag">
           {live
             ? `Sleeper · period ${data.league.period ?? "—"}`
             : "Fictional sample roster"}
         </span>
       </div>
+      {!live && (
+        <p className="roster-overview">
+          {data.league.record} · {data.league.standing} ·{" "}
+          {data.league.faab_remaining === null
+            ? "Budget unavailable"
+            : `$${data.league.faab_remaining} remaining`}{" "}
+          · {data.settings.protected_players.length} protected players
+        </p>
+      )}
       {live && (
         <div className="sleeper-roster-summary">
           <div>
@@ -34,27 +57,68 @@ export function Roster({ data }: { data: Bootstrap }) {
           <span className="tag">READ ONLY · NBA COMPATIBILITY</span>
         </div>
       )}
-      <div className="table-scroll">
+      <div className="roster-toolbar">
+        <label className="search-field">
+          <Search size={18} />
+          <span className="sr-only">Search roster</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, team, or position"
+          />
+        </label>
+        <div className="filter-group" role="group" aria-label="Roster filter">
+          <button
+            aria-pressed={!protectedOnly}
+            onClick={() => setProtectedOnly(false)}
+          >
+            All players
+          </button>
+          <button
+            aria-pressed={protectedOnly}
+            onClick={() => setProtectedOnly(true)}
+          >
+            Protected
+          </button>
+        </div>
+        {onManageProtections && (
+          <button className="button subtle" onClick={onManageProtections}>
+            Manage protections
+          </button>
+        )}
+      </div>
+      <p className="roster-count" role="status">
+        {players.length} of {data.league.roster.length} players
+      </p>
+      <div
+        className="table-scroll"
+        role="region"
+        aria-label="Roster table"
+        tabIndex={0}
+      >
         <table>
+          <caption className="sr-only">
+            {data.league.team_name} player statistics and protection status
+          </caption>
           <thead>
             <tr>
-              <th>PLAYER</th>
-              <th>POSITION</th>
-              <th>MIN / PREV</th>
-              <th>
+              <th scope="col">Player</th>
+              <th scope="col">Position</th>
+              <th scope="col">Min / prev</th>
+              <th scope="col">
                 {live ? `PERIOD ${data.league.period ?? "—"} FPTS` : "FPTS"}
               </th>
-              {live && <th>RECENT FPTS / GAME</th>}
-              <th>{live ? "OBSERVED TREND" : "7-GAME TREND"}</th>
-              <th>STATUS</th>
+              {live && <th scope="col">RECENT FPTS / GAME</th>}
+              <th scope="col">{live ? "Observed trend" : "7-game trend"}</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>
-            {data.league.roster.map((p) => (
+            {players.map((p) => (
               <tr key={p.id}>
                 <td>
                   <div className="table-player">
-                    <Avatar player={p} small />
                     <span>
                       <b>{p.name}</b>
                       <small>{p.team}</small>
@@ -103,6 +167,22 @@ export function Roster({ data }: { data: Bootstrap }) {
           </tbody>
         </table>
       </div>
+      {!players.length && (
+        <div className="board-empty">
+          <Search size={28} />
+          <h3>No players match</h3>
+          <p>Try another name, team, or position.</p>
+          <button
+            className="button subtle"
+            onClick={() => {
+              setQuery("");
+              setProtectedOnly(false);
+            }}
+          >
+            <X size={15} /> Clear filters
+          </button>
+        </div>
+      )}
       <p className="data-note">
         {data.league.notice}
         {!live && " Points = PTS + 1.2 REB + 1.5 AST + 3 STL + 3 BLK − TO."}

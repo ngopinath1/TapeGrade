@@ -1,7 +1,7 @@
-import { Radar, ArrowUpRight, ShieldCheck, Bookmark } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import type { Candidate } from "../types";
 import { percent } from "../lib/api";
-import { Avatar, VerdictBadge } from "./Player";
+import { VerdictBadge } from "./Player";
 
 export function Candidates({
   candidates,
@@ -17,110 +17,63 @@ export function Candidates({
   onWatch: (id: string) => void;
 }) {
   return (
-    <section className="panel candidates-panel">
-      <div className="panel-head">
-        <div className="section-label">
-          <Radar size={15} /> OPPORTUNITY BOARD
-        </div>
-        <span className="count-pill">{candidates.length} scouted</span>
-      </div>
-      <div className="board-heading">
-        <h2>Read between the stats.</h2>
-        <p>Ranked by role, opportunity and film evidence.</p>
+    <section className="candidates-panel" aria-label="Scouted candidates">
+      <div className="candidate-heading">
+        <h2>Players</h2>
+        <span>{candidates.length}</span>
       </div>
       {candidates.length ? (
         <div className="candidate-list">
-          {candidates.map((c, i) => (
+          {candidates.map((candidate, index) => (
             <div
-              className={`candidate ${selected === c.player.id ? "selected" : ""}`}
-              key={c.player.id}
+              className={`candidate ${selected === candidate.player.id ? "selected" : ""}`}
+              key={candidate.player.id}
             >
               <button
                 className="candidate-main"
-                onClick={() => onSelect(c.player.id)}
-                aria-pressed={selected === c.player.id}
+                onClick={() => onSelect(candidate.player.id)}
+                aria-pressed={selected === candidate.player.id}
+                aria-label={`Rank ${index + 1} ${candidate.player.name} ${candidate.player.team} ${candidate.verdict.verdict}`}
               >
-                <span className="rank">{String(i + 1).padStart(2, "0")}</span>
-                <Avatar player={c.player} />
                 <span className="candidate-name">
-                  <strong>{c.player.name}</strong>
+                  <strong>{candidate.player.name}</strong>
                   <small>
-                    {c.player.team} <span>·</span>{" "}
-                    {c.player.positions.join(" / ")}
+                    {candidate.player.team} ·{" "}
+                    {candidate.player.positions.join(" / ")}
                   </small>
                 </span>
-                <VerdictBadge value={c.verdict.verdict} />
+                <VerdictBadge value={candidate.verdict.verdict} />
+                <span className="candidate-stats">
+                  {candidate.player.film_only
+                    ? "Film test · stats unavailable"
+                    : candidate.player.is_demo === false
+                      ? `${candidate.player.recent_fantasy_average ?? "—"} FPTS/game · n=${candidate.player.recent?.sample_size ?? 0}`
+                      : `${candidate.player.fantasy_points} FPTS`}
+                  <span>
+                    {percent(candidate.verdict.confidence)} confidence
+                  </span>
+                </span>
               </button>
-              <p className="candidate-rationale">{c.verdict.rationale}</p>
-              <div className="candidate-bottom">
-                <span>
-                  {c.player.film_only ? (
-                    "Film test · stats unavailable"
-                  ) : c.player.is_demo === false ? (
-                    <>
-                      <b>{c.player.recent_fantasy_average ?? "—"}</b> FPTS/game{" "}
-                      <i>·</i> n={c.player.recent?.sample_size ?? 0}
-                      <i>·</i>{" "}
-                      {c.player.minutes !== null &&
-                      c.player.previous_minutes !== null
-                        ? `${c.player.minutes - c.player.previous_minutes >= 0 ? "+" : ""}${(c.player.minutes - c.player.previous_minutes).toFixed(1)} MIN`
-                        : "Minute trend unavailable"}
-                    </>
-                  ) : (
-                    <>
-                      <b>{c.player.fantasy_points}</b> FPTS <i>·</i>{" "}
-                      <b className="positive">
-                        {(c.player.minutes ?? 0) -
-                          (c.player.previous_minutes ?? 0) >=
-                        0
-                          ? "+"
-                          : ""}
-                        {(c.player.minutes ?? 0) -
-                          (c.player.previous_minutes ?? 0)}
-                      </b>{" "}
-                      MIN
-                    </>
-                  )}
-                </span>
-                <span className="confidence">
-                  <i
-                    style={
-                      {
-                        "--confidence": `${c.verdict.confidence * 100}%`,
-                      } as React.CSSProperties
-                    }
-                  />
-                  {percent(c.verdict.confidence)}
-                </span>
-                <button
-                  className={`icon-button watch ${watchlist.includes(c.player.id) ? "watched" : ""}`}
-                  aria-label={`${watchlist.includes(c.player.id) ? "Remove" : "Add"} ${c.player.name} ${watchlist.includes(c.player.id) ? "from" : "to"} watchlist`}
-                  onClick={() => onWatch(c.player.id)}
-                >
-                  <Bookmark size={14} />
-                </button>
-              </div>
+              <button
+                className={`icon-button watch ${watchlist.includes(candidate.player.id) ? "watched" : ""}`}
+                aria-label={`${watchlist.includes(candidate.player.id) ? "Remove" : "Add"} ${candidate.player.name} ${watchlist.includes(candidate.player.id) ? "from" : "to"} watchlist`}
+                aria-pressed={watchlist.includes(candidate.player.id)}
+                onClick={() => onWatch(candidate.player.id)}
+              >
+                <Bookmark size={15} />
+              </button>
             </div>
           ))}
         </div>
       ) : (
         <div className="board-empty">
-          <Radar size={32} />
-          <h3>Find your next advantage.</h3>
-          <p>
-            Tell the scout what your roster needs. Your ranked candidates will
-            land here.
-          </p>
-          <span>
-            01 &nbsp; Scout &nbsp; → &nbsp; 02 &nbsp; Watch &nbsp; → &nbsp; 03
-            &nbsp; Decide
-          </span>
+          <h3>No candidates in this report</h3>
+          <p>Review the scan details for any missing evidence.</p>
         </div>
       )}
-      <div className="board-foot">
-        <ShieldCheck size={13} />
-        <span>Film supports the verdict. You make the move.</span>
-      </div>
+      <p className="candidate-footnote">
+        Ranked by role, opportunity, and film evidence.
+      </p>
     </section>
   );
 }

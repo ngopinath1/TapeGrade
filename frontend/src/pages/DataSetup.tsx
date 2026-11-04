@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { Database, RefreshCw, Upload, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { RefreshCw, Upload } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { api } from "../lib/api";
 import { ScanReadiness } from "../components/ScanReadiness";
+import { SectionTabs } from "../components/SectionTabs";
 
 type Proposal = {
   sleeper_id: string;
@@ -39,6 +40,8 @@ export function DataSetup({
   onRefresh: () => Promise<void>;
   onError: (message: string) => void;
 }) {
+  const [section, setSection] = useState("overview");
+  const importInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -104,18 +107,15 @@ export function DataSetup({
   const filtered = players.filter((p) =>
     p.name.toLowerCase().includes(query.toLowerCase()),
   );
-  return (
-    <div className="data-setup">
+  const panels: Record<string, ReactNode> = {
+    overview: (
       <section className="panel settings-panel">
         <div className="panel-head">
-          <div className="section-label">
-            <Database size={15} /> LEAGUE DATA & READINESS
-          </div>
+          <h2>League data</h2>
           <span className="tag">
-            {data.league.scouting_ready ? "STATISTICS READY" : "SETUP REQUIRED"}
+            {data.league.scouting_ready ? "Statistics ready" : "Setup required"}
           </span>
         </div>
-        <h2>Make every comparison traceable.</h2>
         <p className="muted">
           Recent averages use up to five completed games in the same declared
           window ({status?.window_days ?? 30} days for new refreshes), with at
@@ -148,7 +148,7 @@ export function DataSetup({
             onClick={() =>
               void act(
                 () => api("/sleeper/refresh", { method: "POST" }),
-                "Sleeper roster and rules refreshed. Game logs are refreshed separately; waiver status and drop locks still need your review below.",
+                "Sleeper roster and rules refreshed. Game logs are refreshed separately; waiver status and drop locks still need review in Eligibility.",
               )
             }
           >
@@ -166,32 +166,39 @@ export function DataSetup({
           >
             <RefreshCw size={15} /> Refresh game logs
           </button>
-          <label className="button subtle">
+          <button
+            type="button"
+            className="button subtle"
+            disabled={busy || running}
+            onClick={() => importInput.current?.click()}
+          >
             <Upload size={15} /> Import licensed JSON
-            <input
-              type="file"
-              accept=".json,application/json"
-              hidden
-              disabled={busy || running}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                e.target.value = "";
-                if (file.size > 20 * 1024 * 1024) {
-                  onError("Game-log imports must be under 20 MB.");
-                  return;
-                }
-                void act(
-                  async () =>
-                    api("/stats/import", {
-                      method: "POST",
-                      body: JSON.stringify(JSON.parse(await file.text())),
-                    }),
-                  "Import queued for validation.",
-                );
-              }}
-            />
-          </label>
+          </button>
+          <input
+            ref={importInput}
+            aria-label="Licensed game-log JSON"
+            type="file"
+            accept=".json,application/json"
+            hidden
+            disabled={busy || running}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              e.target.value = "";
+              if (file.size > 20 * 1024 * 1024) {
+                onError("Game-log imports must be under 20 MB.");
+                return;
+              }
+              void act(
+                async () =>
+                  api("/stats/import", {
+                    method: "POST",
+                    body: JSON.stringify(JSON.parse(await file.text())),
+                  }),
+                "Import queued for validation.",
+              );
+            }}
+          />
         </div>
         <p className="data-note">
           Game logs update basketball statistics. Refresh Sleeper roster updates
@@ -215,22 +222,17 @@ export function DataSetup({
             {j.status} · {j.id.slice(0, 8)} {j.error && `· ${j.error}`}
           </p>
         ))}
-        {message && (
-          <p role="status" className="data-note">
-            {message}
-          </p>
-        )}
       </section>
+    ),
+    rules: (
       <section className="panel settings-panel">
         <div className="panel-head">
-          <div className="section-label">
-            <ShieldCheck size={15} /> VERIFY LEAGUE RULES
-          </div>
+          <h2>League rules</h2>
         </div>
         <p className="muted">
           Check Sleeper’s league settings and a scored 50-point game before
           saving bonus behavior. Numeric API codes remain uninterpreted. Save
-          optional protected players in Autopilot. Everyone else can be
+          optional protected players in Guardrails. Everyone else can be
           evaluated using current, verified statistics.
         </p>
         <form
@@ -328,9 +330,11 @@ export function DataSetup({
           </button>
         </form>
       </section>
+    ),
+    identity: (
       <section className="panel settings-panel">
         <div className="panel-head">
-          <div className="section-label">PLAYER IDENTITY REVIEW</div>
+          <h2>Player identities</h2>
         </div>
         <p className="muted">
           Exact normalized names are proposals. Review each athlete using
@@ -400,9 +404,11 @@ export function DataSetup({
           </p>
         )}
       </section>
+    ),
+    eligibility: (
       <section className="panel settings-panel">
         <div className="panel-head">
-          <div className="section-label">CURRENT TRANSACTION ELIGIBILITY</div>
+          <h2>Transaction eligibility</h2>
         </div>
         <p className="muted">
           Unrostered status does not prove addability. Check the candidate’s
@@ -411,7 +417,7 @@ export function DataSetup({
           without it.
         </p>
         <ol className="data-note">
-          <li>Refresh Sleeper roster above.</li>
+          <li>Refresh the Sleeper roster in Overview.</li>
           <li>
             Choose a free agent below, select “Immediate free agent” or “On
             waivers” based on Sleeper, and save your verification source.
@@ -514,9 +520,11 @@ export function DataSetup({
           </button>
         </form>
       </section>
+    ),
+    logs: (
       <section className="panel settings-panel">
         <div className="panel-head">
-          <div className="section-label">ROSTER & FREE-AGENT GAME LOGS</div>
+          <h2>Game logs</h2>
         </div>
         <input
           aria-label="Search recent game logs"
@@ -609,6 +617,32 @@ export function DataSetup({
             );
           })()}
       </section>
+    ),
+  };
+  return (
+    <div className="data-setup">
+      <p className="page-description">
+        Set up the evidence your scouting reports rely on.
+      </p>
+      {message && (
+        <p role="status" className="setup-feedback">
+          {message}
+        </p>
+      )}
+      <SectionTabs
+        label="League setup sections"
+        selected={section}
+        onSelect={setSection}
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "rules", label: "Rules" },
+          { id: "identity", label: "Player identities" },
+          { id: "eligibility", label: "Eligibility" },
+          { id: "logs", label: "Game logs" },
+        ]}
+      >
+        {(id) => panels[id]}
+      </SectionTabs>
     </div>
   );
 }

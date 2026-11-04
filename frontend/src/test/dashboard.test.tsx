@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import App from "../pages/App";
 import { FilmPlayer } from "../components/FilmPlayer";
 import { Recommendation } from "../components/Recommendation";
+import { Library } from "../pages/Library";
 import fixture from "./fixture.json";
 import type { Candidate, Scan } from "../types";
 
@@ -57,7 +58,7 @@ describe("scouting dashboard", () => {
     vi.stubGlobal("fetch", fetcher);
     render(<App />);
     await screen.findByRole("button", { name: /Run scan/ });
-    fireEvent.change(screen.getByLabelText("GIVE YOUR SCOUT A MISSION"), {
+    fireEvent.change(screen.getByLabelText("Scouting mission"), {
       target: { value: "Find me a guard" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Run scan/ }));
@@ -80,7 +81,7 @@ describe("scouting dashboard", () => {
       "href",
       `/api/scans/${scan.id}/card`,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Autopilot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardrails" }));
     expect(
       screen.getByRole("button", { name: /Save guardrails/ }),
     ).toBeInTheDocument();
@@ -164,7 +165,7 @@ describe("scouting dashboard", () => {
       available: [],
     };
     live.settings.protected_players = [];
-    const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    const fetcher = vi.fn(async (url: string, _options?: RequestInit) => {
       let data: unknown;
       if (url === "/api/sleeper/connect") {
         connected = true;
@@ -277,7 +278,10 @@ it("opens league setup with explicit missing data and import controls", async ()
   expect(
     await screen.findByText("Technical and flagrant foul coverage is missing."),
   ).toBeInTheDocument();
-  expect(screen.getByText("Import licensed JSON")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Import licensed JSON" }),
+  ).toBeEnabled();
+  fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
   expect(screen.getByLabelText("Basketball mode")).toHaveValue("unknown");
   expect(
     screen.getByRole("button", { name: "Save verified rule evidence" }),
@@ -317,6 +321,7 @@ it("shows the owner-confirmed mode, FAAB budget and stacking rule", async () => 
   );
   render(<App />);
   fireEvent.click(await screen.findByRole("button", { name: "League setup" }));
+  fireEvent.click(await screen.findByRole("tab", { name: "Rules" }));
   expect(await screen.findByLabelText("Basketball mode")).toHaveValue(
     "lock_in",
   );
@@ -392,4 +397,301 @@ it("allows scouting with unknown eligibility and keeps refresh controls separate
   expect(
     fetcher.mock.calls.filter(([url]) => url === "/api/stats/refresh"),
   ).toHaveLength(1);
+});
+
+it("offers mission shortcuts and keeps the first scan focused", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url === "/api/bootstrap" ? fixture.bootstrap : []),
+    })),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find a wing" }));
+  expect(screen.getByLabelText("Scouting mission")).toHaveValue(
+    "Find me an undervalued wing.",
+  );
+  expect(screen.getByLabelText("Scouting mission")).toHaveFocus();
+  expect(screen.getByText("Find your next opportunity.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Scouted candidates")).not.toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Scouting desk" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Hide navigation" }));
+  expect(
+    screen.queryByRole("navigation", { name: "Main navigation" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show navigation" }));
+  expect(
+    screen.getByRole("navigation", { name: "Main navigation" }),
+  ).toBeVisible();
+});
+
+it("changes the player film while preserving the scan recommendation", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url === "/api/bootstrap"
+          ? fixture.bootstrap
+          : url === "/api/scans"
+            ? [scan]
+            : scan,
+    })),
+  );
+  render(<App />);
+  await screen.findByRole("heading", { name: "Cameron Reed" });
+  screen.getByRole("region", { name: "Selected player report" }).scrollTop =
+    700;
+  fireEvent.click(screen.getByRole("button", { name: /Rank 2.*Jalen Mercer/ }));
+  expect(
+    screen.getByRole("heading", { name: "Jalen Mercer" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("region", { name: "Selected player report" }).scrollTop,
+  ).toBe(0);
+  expect(
+    screen.getByRole("button", { name: /Rank 2.*Jalen Mercer/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByText("Awaiting your tap.")).toBeInTheDocument();
+  expect(
+    screen.getByText(/Best supported move across this scan/),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Scouting mission")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Start another scan/ }));
+  expect(screen.getByLabelText("Scouting mission")).toBeInTheDocument();
+});
+
+it("filters the roster by player and protection status", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url === "/api/bootstrap" ? fixture.bootstrap : []),
+    })),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "My roster" }));
+  expect(screen.getByRole("heading", { name: "My roster" })).toHaveFocus();
+  const player = fixture.bootstrap.league.roster[0];
+  fireEvent.change(screen.getByLabelText("Search roster"), {
+    target: { value: player.name },
+  });
+  expect(
+    screen.getByText(`1 of ${fixture.bootstrap.league.roster.length} players`),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Search roster"), {
+    target: { value: "No matching player" },
+  });
+  expect(screen.getByText("No players match")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  fireEvent.click(screen.getByRole("button", { name: "Protected" }));
+  expect(
+    screen.getByText(
+      `${fixture.bootstrap.settings.protected_players.length} of ${fixture.bootstrap.league.roster.length} players`,
+    ),
+  ).toBeInTheDocument();
+});
+
+it("contains keyboard focus in the league dialog and restores the trigger", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url === "/api/bootstrap" ? fixture.bootstrap : []),
+    })),
+  );
+  render(<App />);
+  const trigger = await screen.findByRole("button", {
+    name: "Connect Sleeper",
+  });
+  trigger.focus();
+  fireEvent.click(trigger);
+  expect(screen.getByLabelText("Sleeper username")).toHaveFocus();
+  const last = screen.getByRole("button", { name: /Continue with the sample/ });
+  last.focus();
+  fireEvent.keyDown(last, { key: "Tab" });
+  expect(
+    screen.getByRole("button", { name: "Close league connection" }),
+  ).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+  expect(last).toHaveFocus();
+  fireEvent.keyDown(last, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});
+
+it("refreshes scan readiness after a film upload", async () => {
+  const onRefresh = vi.fn().mockResolvedValue(undefined);
+  const onToast = vi.fn();
+  const onError = vi.fn();
+  const fetcher = vi.fn(async (_url: string, options?: RequestInit) => ({
+    ok: true,
+    json: async () => (options?.method === "POST" ? { id: "new-clip" } : []),
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  render(
+    <Library
+      data={fixture.bootstrap as import("../types").Bootstrap}
+      onRefresh={onRefresh}
+      onToast={onToast}
+      onError={onError}
+    />,
+  );
+  await screen.findByText("No clips in your library");
+  fireEvent.change(screen.getByLabelText("Target player"), {
+    target: { value: fixture.bootstrap.league.available[0].id },
+  });
+  fireEvent.change(screen.getByLabelText("Video file"), {
+    target: {
+      files: [new File(["local test"], "test.mp4", { type: "video/mp4" })],
+    },
+  });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Process local clip" }).closest("form")!,
+  );
+  await waitFor(() => expect(onRefresh).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(onToast).toHaveBeenCalledWith(
+      "Clip processed. It will be selected on the next scan.",
+    ),
+  );
+  expect(
+    fetcher.mock.calls.some(([, options]) => options?.method === "POST"),
+  ).toBe(true);
+});
+
+it("opens a compact navigation drawer and returns to the chosen page", async () => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url === "/api/bootstrap" ? fixture.bootstrap : []),
+    })),
+  );
+  render(<App />);
+  const menu = await screen.findByRole("button", { name: "Show navigation" });
+  expect(
+    screen.queryByRole("navigation", { name: "Main navigation" }),
+  ).not.toBeInTheDocument();
+  menu.focus();
+  fireEvent.click(menu);
+  expect(screen.getByRole("dialog", { name: "Workspace" })).toBeInTheDocument();
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(menu).toHaveFocus();
+  fireEvent.click(menu);
+  fireEvent.click(screen.getByRole("button", { name: "My roster" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "My roster" })).toHaveFocus();
+  expect(screen.getByLabelText("Search roster")).toBeInTheDocument();
+});
+
+it("preserves setup form values and supports keyboard section navigation", async () => {
+  const live = structuredClone(
+    fixture.bootstrap,
+  ) as import("../types").Bootstrap;
+  live.league.is_demo = false;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url === "/api/bootstrap"
+          ? live
+          : url === "/api/stats"
+            ? {
+                provider: "none",
+                provider_configured: false,
+                summary: null,
+                jobs: [],
+              }
+            : [],
+    })),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "League setup" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+  fireEvent.change(screen.getByLabelText("Verification source"), {
+    target: { value: "Verified league settings reference" },
+  });
+  fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
+  expect(
+    screen.queryByRole("button", { name: "Save verified rule evidence" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+  expect(screen.getByLabelText("Verification source")).toHaveValue(
+    "Verified league settings reference",
+  );
+  fireEvent.change(screen.getByLabelText("Basketball mode"), {
+    target: { value: "lock_in" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Save verified rule evidence" }),
+  );
+  expect(await screen.findByText("Rule evidence saved.")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Rules" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  fireEvent.keyDown(screen.getByRole("tab", { name: "Rules" }), {
+    key: "ArrowRight",
+  });
+  expect(screen.getByRole("tab", { name: "Player identities" })).toHaveFocus();
+  expect(
+    screen.getByRole("tab", { name: "Player identities" }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByLabelText("Identity verification source")).toBeVisible();
+  fireEvent.keyDown(document.activeElement!, { key: "End" });
+  expect(screen.getByRole("tab", { name: "Game logs" })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "Home" });
+  expect(screen.getByRole("tab", { name: "Overview" })).toHaveFocus();
+});
+
+it("finds a saved scan and reopens its matching report", async () => {
+  const older = structuredClone(scan);
+  older.id = "older-report";
+  older.instruction = "Earlier guard scouting report";
+  const fetcher = vi.fn(async (url: string) => ({
+    ok: true,
+    json: async () =>
+      url === "/api/bootstrap"
+        ? fixture.bootstrap
+        : url === "/api/scans"
+          ? [scan, older]
+          : url === `/api/scans/${older.id}`
+            ? older
+            : scan,
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: /Scan history/ }));
+  fireEvent.change(screen.getByLabelText("Search scan history"), {
+    target: { value: "Earlier guard" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: /Earlier guard scouting report/ }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: older.instruction }),
+  ).toBeInTheDocument();
+  expect(
+    fetcher.mock.calls.some(([url]) => url === `/api/scans/${older.id}`),
+  ).toBe(true);
+  expect(
+    screen.getByRole("heading", { name: "Scouting desk" }),
+  ).toBeInTheDocument();
 });

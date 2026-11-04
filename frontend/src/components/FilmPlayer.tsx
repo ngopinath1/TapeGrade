@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Crosshair,
-  Eye,
-  EyeOff,
-  Film,
-  Maximize2,
-  Pause,
-  Play,
-} from "lucide-react";
+import { Crosshair, Eye, EyeOff, Maximize2, Pause, Play } from "lucide-react";
 import type { Candidate } from "../types";
 
 const colors = {
@@ -56,36 +48,43 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
     }
   };
   return (
-    <section className="panel film-panel">
-      <div className="panel-head">
-        <div className="section-label">
-          <Film size={15} /> FILM ROOM
-        </div>
-        <span className="micro">
-          {tracking?.simulated
-            ? "SCHEMATIC SIMULATION"
-            : clip
-              ? "UPLOADED FOOTAGE"
-              : "AWAITING ANALYSIS"}
-        </span>
-      </div>
+    <section className="film-panel">
       <div className="film-title">
         <div>
-          <h2>{candidate?.player.name ?? "The opportunity is on tape."}</h2>
+          <h2>{candidate?.player.name ?? "Player film"}</h2>
           <p>
             {candidate
               ? `${candidate.player.team}${candidate.player.number === null ? "" : ` · #${candidate.player.number}`} · ${candidate.player.positions.join(" / ")}`
               : "Run a scan to open the film report."}
           </p>
         </div>
-        <span className="tag">
-          <Crosshair size={12} />{" "}
+        <span
+          className={`verification-status ${candidate?.verified ? "verified" : ""}`}
+        >
           {candidate?.verified
             ? "Clip verified"
             : candidate
               ? "Clip unverified"
-              : "Local film analysis"}
+              : "No player selected"}
         </span>
+      </div>
+      {candidate && (
+        <div className="player-assessment">
+          <p>{candidate.verdict.rationale}</p>
+          <span>
+            {Math.round(candidate.verdict.confidence * 100)}% verdict confidence
+            {candidate.player.minutes !== null &&
+              candidate.player.previous_minutes !== null &&
+              ` · ${candidate.player.minutes - candidate.player.previous_minutes >= 0 ? "+" : ""}${(candidate.player.minutes - candidate.player.previous_minutes).toFixed(1)} minutes vs. previous`}
+          </span>
+        </div>
+      )}
+      <div className="film-source">
+        {tracking?.simulated
+          ? "Original schematic film · simulated tracking"
+          : clip
+            ? "Uploaded footage"
+            : "No footage available"}
       </div>
       <div className="video-wrap">
         {clip ? (
@@ -171,12 +170,7 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           </>
         ) : (
           <div className="film-empty">
-            <div className="court-lines">
-              <div />
-              <span />
-            </div>
-            <Crosshair size={36} />
-            <p>Better decisions start with a closer look.</p>
+            <Crosshair size={24} />
             <span>No clip analyzed yet</span>
           </div>
         )}
@@ -185,6 +179,7 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
         <button
           className="icon-button"
           aria-label={playing ? "Pause clip" : "Play clip"}
+          title={playing ? "Pause clip" : "Play clip"}
           disabled={!clip}
           onClick={() => {
             if (playing) video.current?.pause();
@@ -209,7 +204,9 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
         <button
           className="icon-button"
           aria-label="Toggle segmentation overlays"
+          title={overlay ? "Hide tracking overlays" : "Show tracking overlays"}
           aria-pressed={overlay}
+          disabled={!tracking}
           onClick={() => setOverlay((v) => !v)}
         >
           {overlay ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -217,8 +214,11 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
         <button
           className="icon-button"
           aria-label="Full screen clip"
+          title="Full screen clip"
           disabled={!clip}
-          onClick={() => video.current?.requestFullscreen()}
+          onClick={() => {
+            void video.current?.requestFullscreen?.().catch(() => {});
+          }}
         >
           <Maximize2 size={15} />
         </button>
@@ -273,8 +273,8 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           ))
         ) : (
           <div className="metric-empty">
-            Tracking-derived proxies will appear here. No estimated numbers
-            before analysis.
+            Film measurements appear after analysis. Choose another candidate to
+            inspect available footage.
           </div>
         )}
       </div>

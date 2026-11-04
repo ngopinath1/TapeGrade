@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
-  Users,
   X,
   Loader2,
   Search,
@@ -9,6 +8,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 export function SleeperDialog({
   close,
@@ -19,6 +19,8 @@ export function SleeperDialog({
   onConnected: () => Promise<void>;
   connection?: { username: string; league_id: string };
 }) {
+  const dialog = useRef<HTMLElement>(null);
+  useDialogFocus(true, dialog, close, "input");
   const [username, setUsername] = useState(connection?.username ?? ""),
     [leagueId, setLeagueId] = useState(connection?.league_id ?? ""),
     [result, setResult] = useState<Record<string, unknown> | null>(null),
@@ -33,6 +35,7 @@ export function SleeperDialog({
   return (
     <div className="modal-backdrop" onClick={close}>
       <section
+        ref={dialog}
         className="modal panel"
         role="dialog"
         aria-modal="true"
@@ -46,14 +49,11 @@ export function SleeperDialog({
         >
           <X size={20} />
         </button>
-        <div className="section-label">
-          <Users size={16} /> LEAGUE CONNECTION
-        </div>
-        <h2 id="sleeper-title">Find your Sleeper account.</h2>
+        <div className="section-label">League connection</div>
+        <h2 id="sleeper-title">Connect your Sleeper league.</h2>
         <p>
-          Enter your username and NBA league ID to import your actual roster,
-          scoring rules and reported period points. NBA access is verified by
-          league ID; automatic league discovery is documented for NFL only.
+          Import your roster, scoring rules, and period points with your Sleeper
+          username and NBA league ID.
         </p>
         <form
           onSubmit={async (e) => {
@@ -116,7 +116,11 @@ export function SleeperDialog({
               : "Look up account"}
           </button>
         </form>
-        {error && <p className="inline-error">{error}</p>}
+        {error && (
+          <p className="inline-error" role="alert">
+            {error}
+          </p>
+        )}
         {result && (
           <div className="connection-result">
             <Check size={18} />
@@ -172,14 +176,21 @@ export function SleeperDialog({
             )}
           </div>
         )}
-        <a
-          className="text-link"
-          href="https://docs.sleeper.com/#get-all-leagues-for-user"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Read Sleeper API limitations <ExternalLink size={12} />
-        </a>
+        <details className="connection-details">
+          <summary>About NBA league connections</summary>
+          <p>
+            NBA access is verified by league ID. Automatic league discovery is
+            documented for NFL only.
+          </p>
+          <a
+            className="text-link"
+            href="https://docs.sleeper.com/#get-all-leagues-for-user"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read Sleeper API limitations <ExternalLink size={12} />
+          </a>
+        </details>
         <button
           className="button subtle full"
           onClick={async () => {

@@ -1,13 +1,5 @@
-import {
-  ArrowUpRight,
-  ArrowDownLeft,
-  ArrowRight,
-  Copy,
-  Zap,
-  ShieldCheck,
-} from "lucide-react";
+import { Copy } from "lucide-react";
 import type { Scan } from "../types";
-import { Avatar } from "./Player";
 
 export function Recommendation({
   scan,
@@ -29,72 +21,76 @@ export function Recommendation({
     }
   };
   return (
-    <section className="panel recommendation">
-      <div className="panel-head">
-        <div className="section-label">
-          <Zap size={15} /> YOUR NEXT MOVE
-        </div>
-        <ShieldCheck size={15} className="positive" />
+    <section className="recommendation" aria-labelledby="recommendation-title">
+      <div className="section-heading">
+        <h2 id="recommendation-title">Scan recommendation</h2>
+        {move && <span className="recommendation-label">For your review</span>}
       </div>
+      <p className="recommendation-scope">
+        Best supported move across this scan. Your player selection changes the
+        film view.
+      </p>
       {move ? (
         <>
-          <div className="move-player">
-            <span className="move-direction">
-              <ArrowUpRight size={17} /> ADD
-            </span>
-            <Avatar player={move.add_player} />
-            <div>
-              <strong>{move.add_player.name}</strong>
-              <small>
-                {move.add_player.team} · {move.add_player.positions.join(" / ")}
-              </small>
+          <div className="move-summary">
+            <div className="move-player">
+              <span className="move-direction">Add</span>
+              <div>
+                <strong>{move.add_player.name}</strong>
+                <small>
+                  {move.add_player.team} ·{" "}
+                  {move.add_player.positions.join(" / ")}
+                </small>
+              </div>
             </div>
-          </div>
-          <div className="move-player drop">
-            <span className="move-direction">
-              <ArrowDownLeft size={17} /> DROP
-            </span>
-            <Avatar player={move.drop_player} />
-            <div>
-              <strong>{move.drop_player.name}</strong>
-              <small>
-                {move.drop_player.team} ·{" "}
-                {move.drop_player.positions.join(" / ")}
-              </small>
+            <div className="move-player drop">
+              <span className="move-direction">Drop</span>
+              <div>
+                <strong>{move.drop_player.name}</strong>
+                <small>
+                  {move.drop_player.team} ·{" "}
+                  {move.drop_player.positions.join(" / ")}
+                </small>
+              </div>
             </div>
-          </div>
-          <div className="bid-row">
-            <span>
-              {move.faab_bid === null ? "Acquisition" : "Recommended FAAB bid"}
-            </span>
-            <b>
-              {move.faab_bid === null ? "No bid applies" : `$${move.faab_bid}`}
+            <div className="bid-row">
+              <span>
+                {move.faab_bid === null
+                  ? "Acquisition"
+                  : "Recommended FAAB bid"}
+              </span>
+              <strong>
+                {move.faab_bid === null
+                  ? "No bid applies"
+                  : `$${move.faab_bid}`}
+              </strong>
               {scan?.result?.league_is_demo !== false &&
-                move.faab_bid !== null && <small> sample FAAB</small>}
-            </b>
+                move.faab_bid !== null && <small>Sample FAAB</small>}
+            </div>
           </div>
           <p className="move-reason">{move.reasoning}</p>
-          <div className="awaiting">
-            <span className="live-dot" />
-            Awaiting your tap.<span>Recommendation only</span>
+          <div className="recommendation-actions">
+            <p className="awaiting">
+              <strong>Awaiting your tap.</strong>
+              <span>Recommendation only</span>
+            </p>
+            <button className="button" onClick={copy}>
+              <Copy size={15} /> Copy move summary
+            </button>
           </div>
-          <button className="button primary full" onClick={copy}>
-            <Copy size={15} /> Copy move summary <ArrowRight size={15} />
-          </button>
         </>
       ) : (
         <div className="move-empty">
-          <ShieldCheck size={30} />
           <h3>
             {scan?.result
               ? "No recommended transaction"
-              : "Your roster. Your final call."}
+              : "No recommendation yet"}
           </h3>
           <p>
             {scan?.result?.guardrail_notice ??
               (scan?.result
                 ? "No move cleared the film evidence and your guardrails."
-                : "A validated add, drop and bid will be staged after your scan.")}
+                : "A validated add, drop and bid will appear after your scan.")}
           </p>
         </div>
       )}

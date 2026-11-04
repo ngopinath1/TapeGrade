@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  SlidersHorizontal,
-  ShieldCheck,
-  LockKeyhole,
-  Check,
-  Loader2,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { Bootstrap, Guardrails } from "../types";
 import { percent } from "../lib/api";
 
@@ -18,21 +12,32 @@ export function Settings({
 }) {
   const [value, setValue] = useState(data.settings);
   const [saving, setSaving] = useState(false);
+  const changed = JSON.stringify(value) !== JSON.stringify(data.settings);
   return (
-    <section className="panel settings-panel">
-      <div className="panel-head">
-        <div className="section-label">
-          <SlidersHorizontal size={15} /> AUTOPILOT GUARDRAILS
+    <section className="guardrails-panel settings-panel">
+      <div className="settings-toolbar">
+        <p className="page-description">
+          Choose the limits your recommendations must respect.
+        </p>
+        <div>
+          <span className="save-state" role="status">
+            {changed ? "Unsaved changes" : "All changes saved"}
+          </span>
+          <button
+            type="submit"
+            form="guardrails-form"
+            disabled={saving || !changed}
+            className="button primary"
+          >
+            {saving && <Loader2 className="spin" size={15} />}
+            {saving ? "Saving…" : "Save guardrails"}
+          </button>
         </div>
-        <ShieldCheck size={16} />
       </div>
-      <h2>Keep the scout inside your lines.</h2>
-      <p className="muted">
-        These rules are persisted and enforced by the backend.
-      </p>
       <form
-        onSubmit={async (e) => {
-          e.preventDefault();
+        id="guardrails-form"
+        onSubmit={async (event) => {
+          event.preventDefault();
           setSaving(true);
           try {
             await onSave(value);
@@ -41,127 +46,169 @@ export function Settings({
           }
         }}
       >
-        <div className="settings-grid">
-          <label>
-            Minimum verdict confidence{" "}
-            <strong>{percent(value.min_confidence)}</strong>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step=".01"
-              value={value.min_confidence}
-              onChange={(e) =>
-                setValue({ ...value, min_confidence: Number(e.target.value) })
-              }
-            />
-            <small>ADD recommendations must meet this threshold.</small>
-          </label>
-          <label>
-            Maximum FAAB bid ($)
-            <input
-              type="number"
-              min="0"
-              max="1000"
-              value={value.max_faab_bid}
-              onChange={(e) =>
-                setValue({ ...value, max_faab_bid: Number(e.target.value) })
-              }
-            />
-            <small>Also capped by the league’s remaining budget.</small>
-          </label>
-        </div>
-        <label className="field-label">PROTECTED PLAYERS (OPTIONAL)</label>
-        <p className="data-note">
-          {data.league.is_demo === false
-            ? "TapeGrade compares current, verified game statistics for players you leave unprotected. Select anyone you never want recommended as a drop. These choices are saved in TapeGrade; the Sleeper connection does not currently supply a verified do-not-drop list."
-            : "Unprotected fictional players are evaluated from sample statistics. Select anyone you never want recommended as a drop in this demonstration."}
-        </p>
-        <div className="protected-grid">
-          {data.league.roster.map((p) => (
-            <label key={p.id} className="check-label">
+        <fieldset className="settings-section">
+          <legend>Recommendation limits</legend>
+          <div className="settings-group">
+            <label className="setting-row">
+              <span>
+                Minimum verdict confidence
+                <small>Required for an ADD recommendation.</small>
+              </span>
+              <span className="range-control">
+                <input
+                  type="range"
+                  aria-label="Minimum verdict confidence"
+                  min="0"
+                  max="1"
+                  step=".01"
+                  value={value.min_confidence}
+                  aria-valuetext={percent(value.min_confidence)}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      min_confidence: Number(event.target.value),
+                    })
+                  }
+                />
+                <output>{percent(value.min_confidence)}</output>
+              </span>
+            </label>
+            <label className="setting-row">
+              <span>
+                Maximum FAAB bid ($)
+                <small>Also capped by your remaining league budget.</small>
+              </span>
               <input
-                type="checkbox"
-                checked={value.protected_players.includes(p.id)}
-                onChange={(e) =>
+                type="number"
+                min="0"
+                max="1000"
+                required
+                value={value.max_faab_bid}
+                onChange={(event) =>
                   setValue({
                     ...value,
-                    protected_players: e.target.checked
-                      ? [...value.protected_players, p.id]
-                      : value.protected_players.filter((id) => id !== p.id),
+                    max_faab_bid: Number(event.target.value),
                   })
                 }
               />
-              <span>{p.name}</span>
-              <LockKeyhole size={13} />
             </label>
-          ))}
-        </div>
-        <div className="schedule-settings">
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={value.schedule_enabled}
-              onChange={(e) =>
-                setValue({ ...value, schedule_enabled: e.target.checked })
-              }
-            />
-            <span>Nightly scan · 1:30 AM America/New_York</span>
-          </label>
-          <p>
-            {data.scheduler_available
-              ? "Scheduler environment enabled. Keep the worker running."
-              : "Scheduler disabled by environment. Set SCHEDULER_ENABLED=1 and restart the worker to activate saved schedules."}
+          </div>
+        </fieldset>
+        <fieldset className="settings-section">
+          <legend>
+            Protected players{" "}
+            <span className="section-count">
+              {value.protected_players.length} selected
+            </span>
+          </legend>
+          <p className="settings-description">
+            Selected players will never be recommended as a drop. Others can be
+            evaluated using{" "}
+            {data.league.is_demo === false
+              ? "current, verified game statistics"
+              : "the fictional sample statistics"}
+            .
           </p>
-          <label>
-            Optional pre-waiver hour (Eastern)
-            <select
-              value={value.pre_waiver_hour ?? ""}
-              onChange={(e) =>
-                setValue({
-                  ...value,
-                  pre_waiver_hour:
-                    e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">Off</option>
-              {Array.from({ length: 24 }, (_, i) => (
-                <option key={i} value={i}>
-                  {String(i).padStart(2, "0")}:00
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="mode-settings">
-          <h3>Models & data</h3>
+          <div className="settings-group protected-list">
+            {data.league.roster.map((player) => (
+              <label key={player.id} className="setting-row check-label">
+                <span>
+                  {player.name}
+                  <small>
+                    {player.team} · {player.positions.join(" / ")}
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={value.protected_players.includes(player.id)}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      protected_players: event.target.checked
+                        ? [...value.protected_players, player.id]
+                        : value.protected_players.filter(
+                            (id) => id !== player.id,
+                          ),
+                    })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="settings-section">
+          <legend>Scheduled scouting</legend>
+          <div className="settings-group">
+            <label className="setting-row check-label">
+              <span>
+                Nightly scan<small>1:30 AM · Eastern time</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={value.schedule_enabled}
+                onChange={(event) =>
+                  setValue({ ...value, schedule_enabled: event.target.checked })
+                }
+              />
+            </label>
+            <label className="setting-row">
+              <span>
+                Additional pre-waiver scan<small>Eastern time</small>
+              </span>
+              <select
+                aria-label="Additional pre-waiver scan (Eastern)"
+                value={value.pre_waiver_hour ?? ""}
+                onChange={(event) =>
+                  setValue({
+                    ...value,
+                    pre_waiver_hour:
+                      event.target.value === ""
+                        ? null
+                        : Number(event.target.value),
+                  })
+                }
+              >
+                <option value="">Off</option>
+                {Array.from({ length: 24 }, (_, index) => (
+                  <option key={index} value={index}>
+                    {String(index).padStart(2, "0")}:00
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="settings-description">
+            {data.scheduler_available
+              ? "Keep the worker running for scheduled scans."
+              : "Scheduling is unavailable in this environment. Your preferences will be saved for when it is enabled."}
+          </p>
+        </fieldset>
+        <details className="mode-settings">
+          <summary>Model environment & scan limits</summary>
           <p>
-            Models: <b>{data.models_mode.toUpperCase()}</b> · League:{" "}
+            Models:{" "}
+            <b>
+              {data.models_mode === "mock"
+                ? "Simulated demo"
+                : "Live Meta models"}
+            </b>{" "}
+            · League:{" "}
             <b>
               {data.league.is_demo === false
-                ? "LIVE SLEEPER NBA"
-                : "FICTIONAL NBA SAMPLE"}
+                ? "Sleeper NBA"
+                : "Fictional NBA sample"}
             </b>
-          </p>
-          <p>
-            Change MOCK_MODELS in the backend environment and restart API +
-            worker. Credentials stay on the backend. NBA leagues can be imported
-            by ID where compatible; automatic NBA discovery is not documented.
           </p>
           <p>
             {data.limits.candidates} candidates · up to {data.limits.retries}{" "}
             SAM retries · {data.limits.live_calls} live calls per scan
           </p>
-        </div>
-        <button type="submit" disabled={saving} className="button primary">
-          {saving ? (
-            <Loader2 className="spin" size={16} />
-          ) : (
-            <Check size={16} />
-          )}
-          Save guardrails
-        </button>
+          <p>
+            Credentials stay on the backend. Change MOCK_MODELS and restart the
+            API and worker to switch environments. Enable SCHEDULER_ENABLED to
+            activate scheduling.
+          </p>
+        </details>
       </form>
     </section>
   );

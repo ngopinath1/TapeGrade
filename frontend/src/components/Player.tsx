@@ -1,4 +1,3 @@
-import { ArrowUpRight } from "lucide-react";
 import { initials } from "../lib/api";
 import type { Player } from "../types";
 export function Sparkline({
@@ -24,7 +23,7 @@ export function Sparkline({
       <polyline
         points={pts}
         fill="none"
-        stroke={muted ? "#758171" : "#b9ef80"}
+        stroke={muted ? "var(--muted)" : "var(--success)"}
         strokeWidth="1.8"
       />
     </svg>
@@ -49,8 +48,6 @@ export function Avatar({
 
 export function VerdictBadge({ value }: { value: string }) {
   return (
-    <span className={`verdict verdict-${value.toLowerCase()}`}>
-      {value === "ADD" && <ArrowUpRight size={11} />} {value}
-    </span>
+    <span className={`verdict verdict-${value.toLowerCase()}`}>{value}</span>
   );
 }

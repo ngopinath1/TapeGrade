@@ -1,26 +1,39 @@
-import { Clapperboard, ArrowDownToLine } from "lucide-react";
+import { ArrowDownToLine } from "lucide-react";
 import type { Scan } from "../types";
 
 export function TapeCard({ scan }: { scan: Scan | null }) {
   const card = scan?.result?.card;
   return (
-    <section className="panel tape-card-panel">
-      <div className="panel-head">
-        <div className="section-label">
-          <Clapperboard size={15} /> TAPE CARD
-        </div>
-        <span className="micro">
-          {card
-            ? card.simulated
-              ? "MOCK ARTWORK"
-              : card.visual_source.startsWith("Local")
-                ? "EVIDENCE CARD"
-                : "MUSE IMAGE"
-            : "AWAITING REPORT"}
-        </span>
+    <section className="report-downloads" aria-label="Report downloads">
+      <div className="download-actions">
+        {card && (
+          <a className="button" href={`/api/scans/${scan?.id}/card`} download>
+            <ArrowDownToLine size={15} /> Download PNG{" "}
+            <small>1080 × 1350</small>
+          </a>
+        )}
+        {scan?.result && (
+          <a
+            className="button"
+            href={`/api/scans/${scan.id}/evidence`}
+            download
+          >
+            Download evidence JSON
+          </a>
+        )}
       </div>
       {card ? (
-        <>
+        <details className="card-preview">
+          <summary>
+            Preview Tape Card{" "}
+            <span>
+              {card.simulated
+                ? "Simulated artwork"
+                : card.visual_source.startsWith("Local")
+                  ? "Evidence card"
+                  : "Muse Image artwork"}
+            </span>
+          </summary>
           <a
             href={`/api/scans/${scan?.id}/card`}
             download
@@ -28,38 +41,16 @@ export function TapeCard({ scan }: { scan: Scan | null }) {
           >
             <img
               src={card.url}
-              alt="Downloadable scouting Tape Card with verified report metrics"
+              alt="Scouting Tape Card with report metrics"
+              loading="lazy"
             />
           </a>
-          <a
-            className="button subtle full"
-            href={`/api/scans/${scan?.id}/card`}
-            download
-          >
-            <ArrowDownToLine size={15} /> Download PNG <span>1080 × 1350</span>
-          </a>
-        </>
+        </details>
       ) : (
-        <div className="card-empty">
-          <div className="mini-card">
-            <Clapperboard size={24} />
-            <span>TAPE / GRADE</span>
-            <i />
-            <i />
-          </div>
-          <p>
-            {scan?.result?.card_error ?? "Your film report, ready to share."}
-          </p>
-        </div>
-      )}
-      {scan?.result && (
-        <a
-          className="button subtle full"
-          href={`/api/scans/${scan.id}/evidence`}
-          download
-        >
-          <ArrowDownToLine size={15} /> Download evidence JSON
-        </a>
+        <p className="data-note">
+          {scan?.result?.card_error ??
+            "The Tape Card will be available when the report is ready."}
+        </p>
       )}
     </section>
   );
