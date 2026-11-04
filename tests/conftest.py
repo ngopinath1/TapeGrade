@@ -7,6 +7,10 @@ os.environ["DEMO_MODE"] = "1"
 os.environ["MODEL_API_KEY"] = ""
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SCHEDULER_ENABLED"] = "0"
+os.environ["NBA_STATS_PROVIDER"] = "none"
+os.environ["SPORTRADAR_API_KEY"] = ""
+os.environ["BALLDONTLIE_API_KEY"] = ""
+os.environ["STATS_WINDOW_DAYS"] = "30"
 
 import httpx
 import pytest

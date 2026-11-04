@@ -1,7 +1,17 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Index,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.database import Base
@@ -177,3 +187,38 @@ class ScheduledInvocation(Base):
     __tablename__ = "scheduled_invocations"
     key: Mapped[str] = mapped_column(primary_key=True)
     scan_id: Mapped[str] = mapped_column(ForeignKey("scan_runs.id"))
+
+
+class PlayerIdentity(Base):
+    __tablename__ = "player_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_player_id"),
+        Index("uq_identity_provider_sleeper", "provider", "sleeper_id", unique=True),
+    )
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    sleeper_id: Mapped[str] = mapped_column(index=True)
+    provider: Mapped[str] = mapped_column(index=True)
+    provider_player_id: Mapped[str]
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class GameLog(Base):
+    __tablename__ = "game_logs"
+    __table_args__ = (UniqueConstraint("provider", "game_id", "provider_player_id"),)
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    provider: Mapped[str] = mapped_column(index=True)
+    game_id: Mapped[str]
+    provider_player_id: Mapped[str] = mapped_column(index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class StatsRefresh(Base):
+    __tablename__ = "stats_refreshes"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    league_id: Mapped[str] = mapped_column(ForeignKey("leagues.id"), index=True)
+    status: Mapped[str] = mapped_column(default="QUEUED", index=True)
+    created_at: Mapped[str] = mapped_column(default=now)
+    updated_at: Mapped[str] = mapped_column(default=now)
+    lease_until: Mapped[float] = mapped_column(Float, default=0)
+    data: Mapped[dict] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)

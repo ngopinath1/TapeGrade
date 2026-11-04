@@ -66,7 +66,11 @@ describe("scouting dashboard", () => {
       fetcher.mock.calls.some(
         ([url, options]) =>
           url === "/api/scans" &&
-          options?.body === JSON.stringify({ instruction: "Find me a guard" }),
+          options?.body ===
+            JSON.stringify({
+              instruction: "Find me a guard",
+              league_id: fixture.bootstrap.league.id,
+            }),
       ),
     ).toBe(true);
     expect(
@@ -220,4 +224,172 @@ describe("scouting dashboard", () => {
       screen.getByRole("button", { name: "Retry connection" }),
     ).toBeInTheDocument();
   });
+});
+
+it("renders non-FAAB real recommendations without a fabricated dollar amount", async () => {
+  const real = structuredClone(scan);
+  real.mode = "live";
+  real.result!.league_is_demo = false;
+  real.result!.staged_move!.faab_bid = null;
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  render(<Recommendation scan={real} onToast={vi.fn()} />);
+  expect(screen.getByText("No bid applies")).toBeInTheDocument();
+  expect(screen.queryByText(/sample FAAB/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Copy move summary/ }));
+  await waitFor(() =>
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("No FAAB bid applies"),
+    ),
+  );
+  expect(writeText.mock.calls[0][0]).toContain("live Sleeper league report");
+  expect(writeText.mock.calls[0][0]).not.toContain("$null");
+});
+
+it("opens league setup with explicit missing data and import controls", async () => {
+  const live = structuredClone(
+    fixture.bootstrap,
+  ) as import("../types").Bootstrap;
+  live.league.is_demo = false;
+  live.league.scouting_ready = false;
+  live.league.readiness_reasons = [
+    "Technical and flagrant foul coverage is missing.",
+  ];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url === "/api/bootstrap"
+          ? live
+          : url === "/api/stats"
+            ? {
+                provider: "none",
+                provider_configured: false,
+                summary: null,
+                jobs: [],
+              }
+            : [],
+    })),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "League setup" }));
+  expect(
+    await screen.findByText("Technical and flagrant foul coverage is missing."),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Import licensed JSON")).toBeInTheDocument();
+  expect(screen.getByLabelText("Basketball mode")).toHaveValue("unknown");
+  expect(
+    screen.getByRole("button", { name: "Save verified rule evidence" }),
+  ).toBeInTheDocument();
+});
+
+it("shows the owner-confirmed mode, FAAB budget and stacking rule", async () => {
+  const live = structuredClone(
+    fixture.bootstrap,
+  ) as import("../types").Bootstrap;
+  live.league.is_demo = false;
+  live.league.scouting_ready = false;
+  live.league.rules = {
+    game_mode: "lock_in",
+    waiver_mode: "faab",
+    point_bonus_mode: "stack",
+    faab_budget: 100,
+    source_ref: "League owner confirmation in chat",
+  };
+  live.league.readiness_reasons = ["No recent statistics snapshot."];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url === "/api/bootstrap"
+          ? live
+          : url === "/api/stats"
+            ? {
+                provider: "none",
+                provider_configured: false,
+                summary: null,
+                jobs: [],
+              }
+            : [],
+    })),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "League setup" }));
+  expect(await screen.findByLabelText("Basketball mode")).toHaveValue(
+    "lock_in",
+  );
+  expect(screen.getByLabelText("Waiver mode")).toHaveValue("faab");
+  expect(screen.getByLabelText("40/50-point bonuses")).toHaveValue("stack");
+  expect(screen.getByLabelText("FAAB season budget ($)")).toHaveValue(100);
+  expect(
+    screen.queryByText(/Review and save protected-player selections/),
+  ).not.toBeInTheDocument();
+});
+
+it("allows scouting with unknown eligibility and keeps refresh controls separate", async () => {
+  const live = structuredClone(
+    fixture.bootstrap,
+  ) as import("../types").Bootstrap;
+  live.league.is_demo = false;
+  live.league.scouting_ready = true;
+  live.models_mode = "live";
+  live.scan_readiness = {
+    ready: true,
+    blockers: [],
+    notice:
+      "Scouting report only: eligibility review is still required for an add/drop recommendation.",
+    eligible_pair_count: 0,
+    candidates: [
+      {
+        id: "real-candidate",
+        name: "Test Scouting Subject",
+        eligible_drop_ids: [],
+        transaction_issues: ["Waiver status unknown"],
+      },
+    ],
+  };
+  const oldError =
+    "No supported add/drop pair has current verified availability.";
+  const fetcher = vi.fn(async (url: string, options?: RequestInit) => {
+    const failed = url === "/api/scans" && options?.method === "POST";
+    const data = failed
+      ? { detail: oldError }
+      : url === "/api/bootstrap"
+        ? live
+        : url === "/api/stats"
+          ? {
+              provider: "sportradar",
+              provider_configured: true,
+              summary: null,
+              jobs: [],
+            }
+          : url === "/api/scans"
+            ? []
+            : { saved: true, id: "refresh-job" };
+    return { ok: !failed, status: failed ? 409 : 200, json: async () => data };
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<App />);
+  const run = await screen.findByRole("button", { name: /Run scan/ });
+  expect(run).toBeEnabled();
+  expect(screen.getByText(/Scouting report only:/)).toBeInTheDocument();
+  expect(screen.getByText(/Test Scouting Subject/)).toBeInTheDocument();
+  fireEvent.click(run);
+  await screen.findByText(oldError);
+  fireEvent.click(screen.getByRole("button", { name: "League setup" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Refresh Sleeper roster" }),
+  );
+  await screen.findByText(/Sleeper roster and rules refreshed/);
+  expect(screen.queryByText(oldError)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh game logs" }));
+  await screen.findByText(/Refresh queued; the worker will fetch/);
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === "/api/sleeper/refresh"),
+  ).toHaveLength(1);
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === "/api/stats/refresh"),
+  ).toHaveLength(1);
 });

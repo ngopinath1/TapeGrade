@@ -31,9 +31,11 @@ import { Roster } from "../components/Roster";
 import { SleeperDialog } from "../components/SleeperDialog";
 import { Settings } from "./Settings";
 import { Library } from "./Library";
+import { DataSetup } from "./DataSetup";
+import { ScanReadiness } from "../components/ScanReadiness";
 import { useDashboard } from "../hooks/useDashboard";
 import { api, complete } from "../lib/api";
-type Page = "desk" | "roster" | "library" | "history" | "settings";
+type Page = "desk" | "roster" | "library" | "history" | "settings" | "data";
 
 export default function App() {
   const {
@@ -68,6 +70,9 @@ export default function App() {
   const nav: { id: Page; label: string; icon: typeof Radar }[] = [
     { id: "desk", label: "Scouting desk", icon: LayoutDashboard },
     { id: "roster", label: "My roster", icon: Users },
+    ...(data?.league.is_demo === false
+      ? [{ id: "data" as Page, label: "League setup", icon: ShieldCheck }]
+      : []),
     { id: "library", label: "Film library", icon: Film },
     { id: "history", label: "Scan history", icon: History },
     { id: "settings", label: "Autopilot", icon: SlidersHorizontal },
@@ -218,6 +223,8 @@ export default function App() {
                   "The evidence room."
                 ) : page === "history" ? (
                   "Every scan. Every decision."
+                ) : page === "data" ? (
+                  "Build a trustworthy league view."
                 ) : (
                   "Autonomous, on your terms."
                 )}
@@ -231,7 +238,9 @@ export default function App() {
                       ? "Process video you have permission to analyze."
                       : page === "history"
                         ? "A persistent record of the scout’s work."
-                        : "Set the rules. Keep the final say."}
+                        : page === "data"
+                          ? "Connect game logs, confirm rules and inspect coverage."
+                          : "Set the rules. Keep the final say."}
               </p>
             </div>
             <span className="edition">
@@ -330,6 +339,7 @@ export default function App() {
                   </button>
                 </div>
               )}
+              <ScanReadiness data={data} />
               <form
                 className="scout-input"
                 onSubmit={async (e) => {
@@ -365,7 +375,12 @@ export default function App() {
                 </span>
                 <button
                   className="button primary scan-button"
-                  disabled={busy || data.league.scouting_ready === false}
+                  disabled={
+                    busy ||
+                    (data.scan_readiness
+                      ? !data.scan_readiness.ready
+                      : data.league.scouting_ready === false)
+                  }
                 >
                   {busy ? (
                     <Loader2 size={17} className="spin" />
@@ -389,7 +404,9 @@ export default function App() {
                 </span>
                 <span>
                   {data.league.is_demo === false
-                    ? "Real Sleeper roster · period points · recent statistics unavailable"
+                    ? data.league.scouting_ready
+                      ? "Real Sleeper roster · sourced recent game logs"
+                      : "Real Sleeper roster · setup required for recommendations"
                     : (scan?.mode ?? data.models_mode) === "mock"
                       ? "Simulated models, fictional players & original schematic film"
                       : scan?.result?.film_test
@@ -481,6 +498,14 @@ export default function App() {
             </>
           )}
           {page === "roster" && <Roster data={data} />}
+          {page === "data" && data.league.is_demo === false && (
+            <DataSetup
+              key={data.league.id}
+              data={data}
+              onRefresh={refresh}
+              onError={setError}
+            />
+          )}
           {page === "settings" && (
             <Settings
               data={data}
@@ -562,7 +587,9 @@ export default function App() {
               SAM 3.1 <i>×</i> Muse Spark <i>×</i> Muse Image{" "}
               <span className="footer-separator">/</span>{" "}
               {data.league.is_demo === false
-                ? "Sleeper roster · recommendations pending statistics"
+                ? data.league.scouting_ready
+                  ? "Sleeper roster · sourced per-game comparisons"
+                  : "Sleeper roster · recommendations pending setup"
                 : (scan?.mode ?? data.models_mode) === "mock"
                   ? "Simulated demo report"
                   : "Live model report"}{" "}

@@ -13,6 +13,8 @@ class ScoutAgent:
                 "available": league["available"],
                 "roster": league["roster"],
                 "scoring": league["scoring"],
+                "game_mode": league.get("rules", {}).get("game_mode", "sample"),
+                "valuation": "Compare exact recent per-game averages with sample sizes. Lock-In and Game Pick count one game per player per week; never multiply a mean by games scheduled. Unrostered does not establish eligibility.",
                 "limit": limit,
             },
             Shortlist,

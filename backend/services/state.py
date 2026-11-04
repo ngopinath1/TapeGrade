@@ -28,9 +28,12 @@ def seed_demo(factory=None):
 def get_league(factory=None, league_id=None):
     with session_scope(factory) as s:
         workspace = s.get(Workspace, "local")
-        return s.get(
+        snapshot = s.get(
             League, league_id or (workspace.active_league_id if workspace else "demo-nba")
         ).data
+    from backend.services.stat_enrichment import enrich_snapshot
+
+    return enrich_snapshot(snapshot, factory)
 
 
 def get_guardrails(factory=None, league_id=None):
@@ -48,6 +51,15 @@ def save_league(snapshot, factory=None):
     with session_scope(factory) as s:
         row = s.get(League, snapshot["id"])
         data = dict(snapshot)
+        if row:
+            from backend.services.stat_enrichment import fingerprint
+
+            if fingerprint(row.data) == fingerprint(data):
+                data["rules"] = row.data.get("rules", {})
+            data["eligibility_reviews"] = row.data.get("eligibility_reviews", {})
+            data["protections_reviewed"] = bool(row.data.get("protections_reviewed")) and {
+                p["id"] for p in row.data["roster"]
+            } == {p["id"] for p in data["roster"]}
         if row and row.data.get("guardrails"):
             guards = dict(row.data["guardrails"])
             current = {p["id"] for p in snapshot["roster"]}

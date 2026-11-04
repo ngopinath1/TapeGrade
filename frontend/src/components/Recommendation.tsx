@@ -21,7 +21,7 @@ export function Recommendation({
     if (!move) return;
     try {
       await navigator.clipboard.writeText(
-        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\nFAAB $${move.faab_bid}\n${move.reasoning}\nAwaiting your tap. Recommendation only.`,
+        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : scan?.result?.league_is_demo === false ? "live Sleeper league report" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\n${move.faab_bid === null ? "No FAAB bid applies" : `FAAB $${move.faab_bid}`}\n${move.reasoning}\nAwaiting your tap. Recommendation only.`,
       );
       onToast("Recommendation copied.");
     } catch {
@@ -64,10 +64,13 @@ export function Recommendation({
             </div>
           </div>
           <div className="bid-row">
-            <span>Recommended FAAB bid</span>
+            <span>
+              {move.faab_bid === null ? "Acquisition" : "Recommended FAAB bid"}
+            </span>
             <b>
-              ${move.faab_bid}
-              <small> sample FAAB</small>
+              {move.faab_bid === null ? "No bid applies" : `$${move.faab_bid}`}
+              {scan?.result?.league_is_demo !== false &&
+                move.faab_bid !== null && <small> sample FAAB</small>}
             </b>
           </div>
           <p className="move-reason">{move.reasoning}</p>

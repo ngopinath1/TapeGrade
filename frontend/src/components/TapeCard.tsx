@@ -13,7 +13,9 @@ export function TapeCard({ scan }: { scan: Scan | null }) {
           {card
             ? card.simulated
               ? "MOCK ARTWORK"
-              : "MUSE IMAGE"
+              : card.visual_source.startsWith("Local")
+                ? "EVIDENCE CARD"
+                : "MUSE IMAGE"
             : "AWAITING REPORT"}
         </span>
       </div>
@@ -49,6 +51,15 @@ export function TapeCard({ scan }: { scan: Scan | null }) {
             {scan?.result?.card_error ?? "Your film report, ready to share."}
           </p>
         </div>
+      )}
+      {scan?.result && (
+        <a
+          className="button subtle full"
+          href={`/api/scans/${scan.id}/evidence`}
+          download
+        >
+          <ArrowDownToLine size={15} /> Download evidence JSON
+        </a>
       )}
     </section>
   );

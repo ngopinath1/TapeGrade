@@ -20,7 +20,17 @@ def font(size):
     return ImageFont.load_default(size=size)
 
 
-def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnostic=None) -> dict:
+def render_card(
+    player, verdict, metrics, clip, mock, image_client=None, diagnostic=None, allow_artwork=True
+) -> dict:
+    fixture = player.get("recent", {}).get("synthetic", False)
+    visual_source = (
+        "Programmatic mock artwork"
+        if mock
+        else settings.image_model if allow_artwork else "Local evidence card; no generated artwork"
+    )
+    if fixture:
+        visual_source = "Offline HTTP contract fixture artwork"
     key = sha256(
         repr(
             (
@@ -30,8 +40,10 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
                 (clip or {}).get("content_hash"),
                 mock,
                 settings.image_model,
-                "card-v4",
+                "card-v5",
                 diagnostic,
+                allow_artwork,
+                player.get("recent"),
             )
         ).encode()
     ).hexdigest()
@@ -40,10 +52,10 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
         return {
             "url": media_url(path),
             "simulated": mock,
-            "visual_source": "Programmatic mock artwork" if mock else settings.image_model,
+            "visual_source": visual_source,
         }
     card = Image.new("RGB", (1080, 1350), "#121914")
-    if not mock:
+    if not mock and allow_artwork:
         # Names and verified numbers are composited locally, never entrusted to image typography.
         data = image_client.generate(
             "An editorial basketball scouting poster background. Dark charcoal basketball court, dramatic olive and lime stadium lights, fine film grain, no people, no logos, no text or numerals. Premium sports magazine art direction. Leave the lower half dark for typography."
@@ -57,13 +69,18 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
     d.rounded_rectangle((809, 60, 1016, 113), radius=8, fill="#c8f58a")
     d.text((844, 68), verdict["verdict"], font=font(30), fill="#182317")
     if clip:
-        im = Image.open(local_path(clip["frames"][1]["url"])).convert("RGB")
+        im = Image.open(local_path(clip["frames"][min(1, len(clip["frames"]) - 1)]["url"])).convert(
+            "RGB"
+        )
         card.paste(ImageOps.fit(im, (952, 490)), (64, 173))
     else:
         d.rectangle((64, 173, 1016, 663), fill="#1b2919", outline="#44523e", width=2)
         d.text((200, 390), "NO VERIFIED FRAME AVAILABLE", font=font(28), fill="#9eb48c")
     d = ImageDraw.Draw(card)
-    d.text((64, 710), player["name"].upper(), font=font(61), fill="#edf0e7")
+    name_size = 61
+    while name_size > 25 and d.textlength(player["name"].upper(), font=font(name_size)) > 952:
+        name_size -= 2
+    d.text((64, 710), player["name"].upper(), font=font(name_size), fill="#edf0e7")
     d.text(
         (67, 792),
         f"{player['team']}   /   {' · '.join(player['positions'])}   /   FILM REPORT",
@@ -92,12 +109,20 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
     d.text(
         (64, 1245),
         (
-            "LIVE MODELS · FILM DIAGNOSTIC · NO FANTASY TRANSACTION"
-            if player.get("film_only")
+            "SYNTHETIC FIXTURE · NO PAID INFERENCE · NO REAL MOVE"
+            if fixture
             else (
-                "SIMULATED DEMO · FICTIONAL PLAYER"
-                if mock
-                else "LIVE MODELS · FICTIONAL SAMPLE LEAGUE"
+                "LIVE MODELS · FILM DIAGNOSTIC · NO FANTASY TRANSACTION"
+                if player.get("film_only")
+                else (
+                    "SIMULATED DEMO · FICTIONAL PLAYER"
+                    if mock
+                    else (
+                        "LIVE MODELS · FICTIONAL SAMPLE LEAGUE"
+                        if player.get("is_demo", True)
+                        else "LIVE MODELS · SLEEPER LEAGUE · RECOMMENDATION ONLY"
+                    )
+                )
             )
         ),
         font=font(18),
@@ -105,8 +130,12 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
     )
     d.text(
         (64, 1285),
-        "Screen-space proxies. Your box score is lying to you.",
-        font=font(19),
+        (
+            f"{player['recent']['provider']} · {player['recent']['window_start']}–{player['recent']['window_end']} · n={player['recent']['sample_size']}"
+            if player.get("recent")
+            else "Screen-space proxies. Your box score is lying to you."
+        ),
+        font=font(17),
         fill="#c8f58a",
     )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,5 +143,5 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnos
     return {
         "url": media_url(path),
         "simulated": mock,
-        "visual_source": "Programmatic mock artwork" if mock else settings.image_model,
+        "visual_source": visual_source,
     }

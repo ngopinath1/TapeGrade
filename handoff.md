@@ -1,5 +1,22 @@
 # TapeGrade handoff — November 4, 2026
 
+> **Current update — November 4:** Sportradar NBA v8 is implemented and connected
+> to the user-supplied trial key in ignored `.env` (existing Meta key preserved).
+> Genuine October 29–November 4 logs: 39 closed games, 1,367 observations; exact
+> recent coverage supports 100 free agents and 6 roster comparison subjects.
+> Lock-In, FAAB $100 and stacking bonuses are owner-confirmed and saved. Protections
+> are optional frontend overrides. Validation: 138 backend tests, 11 frontend tests,
+> production build and browser/HTTP checks. No new Meta calls were used.
+> See `docs/STATISTICS.md` and the latest `PROGRESS.md` section for current details.
+> The original handoff below is a historical baseline: its missing-adapter/feed
+> statements are superseded. Scouting reports can now run without transaction
+> eligibility review; ADD verdicts and staged moves still require current
+> availability/lock evidence and verified named film. The provisional Hauser clip
+> is date/identity-unverified and the old 55% result remains ineligible.
+> Source refreshes use seven days, a 60-request cap, 180 seconds and a four-second
+> post-response gap. Do not expand the separate six-call Meta scan budget silently.
+
+
 ## Objective for the next chat
 
 Add a trustworthy recent NBA statistics feed for rostered and unrostered players,

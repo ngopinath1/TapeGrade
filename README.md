@@ -536,10 +536,15 @@ Show ADD Cameron / DROP Theo / $8 and “Awaiting your tap.”
 
 **1:55–2:25 — The safety boundary.** Protect Theo in Autopilot, save, and show that
 the staged transaction is withdrawn. Describe confidence and FAAB caps and the
-absence of any transaction submission endpoint.
+absence of any transaction submission endpoint. For connected leagues, open League setup
+and show the separate period/average fields, source coverage and unresolved rule evidence.
+The real scan stays blocked until those prerequisites are satisfied.
 
 **2:25–2:50 — Share the insight.** Download the Tape Card. In live mode Muse Image
-supplies the artwork; Pillow ensures exact names and verified numbers. End with
+supplies artwork for supported outcomes; low-quality normal reports use a local card.
+Download the evidence JSON to show frozen source rows and the call ledger. The separate
+offline contract card is visibly labeled synthetic; the earlier genuine 55% film
+diagnostic is not an ADD. Pillow ensures exact names and verified numbers. End with
 the three roles: SAM perceives, Spark checks and decides, Image communicates.
 
 Submission deadline supplied for this project: **November 4, 2026, 9:00 PM ET**.
@@ -547,3 +552,31 @@ Credentials, Spark structured output, actual SAM masks and Muse Image artwork we
 verified on November 3. Reserve time before the deadline for broader footage
 validation and a supported statistics provider; real fantasy recommendations remain
 unverified beyond the offline fixtures and complete mock demonstration.
+
+### Recent NBA logs and League setup
+
+Connected leagues now expose a **League setup** page for bounded statistics refreshes,
+licensed JSON import, player identity review, rule evidence and per-game logs for
+roster players and free agents. Exact scoring and readiness are computed from saved
+source evidence; period totals remain separately labeled. Live staging validates
+protections, eligibility/locks and position fit, and supports moves without FAAB.
+
+Sportradar NBA v8 is now connected to the supplied trial key through the ignored
+backend environment. The first real seven-day import contains 39 closed games and
+1,367 player observations. Shared Sportradar IDs connect the athletes to Sleeper;
+exact recent coverage supports 100 free agents and 6 roster players. Short samples,
+DNPs, unknown participation and missing foul fields remain explicit gaps.
+
+The owner confirmed Lock-In, a $100 FAAB season budget and stacking 40/50-point
+bonuses. Protections are optional frontend overrides. The data refresh respects a
+60-request cap, three-minute timeout and four-second post-response pacing, and
+reuses cached source receipts. Scans can produce scouting reports while transaction
+eligibility is unknown. ADD verdicts and add/drop recommendations require current
+eligibility/lock evidence and verified named film at the quality threshold. League
+setup separates **Refresh Sleeper roster** from **Refresh game logs** and explains
+how to review the free agent and rostered drop. The
+existing 55% film result cannot support ADD. See
+[statistics setup and current limitations](docs/STATISTICS.md).
+
+Completed reports now download both a Tape Card PNG and auditable evidence JSON.
+The offline contract demonstration is labeled synthetic and uses zero paid requests.

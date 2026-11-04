@@ -43,3 +43,6 @@ def initialize(engine_override=None):
     from backend.db import schema  # noqa: F401
 
     Base.metadata.create_all(engine_override or engine)
+    # Additive index for installations that created identity tables before this index.
+    for index in schema.PlayerIdentity.__table__.indexes:
+        index.create(engine_override or engine, checkfirst=True)

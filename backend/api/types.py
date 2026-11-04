@@ -17,7 +17,7 @@ class Guardrails(StrictModel):
 
 class ScanRequest(StrictModel):
     instruction: str = Field("Find me an undervalued guard.", min_length=3, max_length=1000)
-    league_id: Literal["demo-nba"] = "demo-nba"
+    league_id: str | None = Field(None, min_length=1, max_length=100)
 
 
 class Shortlist(StrictModel):
@@ -30,7 +30,9 @@ class SeedObject(StrictModel):
     id: int = Field(ge=0, le=15)
     role: Literal["target", "defender", "ball"]
     box: list[int] = Field(
-        min_length=4, max_length=4, description="Source pixel x1,y1,x2,y2 inclusive, in frame 0"
+        min_length=4,
+        max_length=4,
+        description="Inclusive source-pixel x1,y1,x2,y2. Verification uses frame 0; retry objects use retry_frame.",
     )
 
 
@@ -51,6 +53,8 @@ class Criticism(StrictModel):
     retry_justified: bool
     refined_prompt: str
     explanation: str
+    retry_objects: list[SeedObject] = Field(default_factory=list, max_length=16)
+    retry_frame: int = Field(0, ge=0)
 
 
 class TrackingObject(StrictModel):
@@ -102,7 +106,7 @@ class PlayerVerdict(StrictModel):
 class ProposedMove(StrictModel):
     add_player_id: str
     drop_player_id: str
-    faab_bid: int = Field(ge=0)
+    faab_bid: int | None = Field(None, ge=0)
     reasoning: str
 
 

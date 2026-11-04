@@ -71,7 +71,12 @@ export function Settings({
             <small>Also capped by the league’s remaining budget.</small>
           </label>
         </div>
-        <label className="field-label">PROTECTED PLAYERS</label>
+        <label className="field-label">PROTECTED PLAYERS (OPTIONAL)</label>
+        <p className="data-note">
+          {data.league.is_demo === false
+            ? "TapeGrade compares current, verified game statistics for players you leave unprotected. Select anyone you never want recommended as a drop. These choices are saved in TapeGrade; the Sleeper connection does not currently supply a verified do-not-drop list."
+            : "Unprotected fictional players are evaluated from sample statistics. Select anyone you never want recommended as a drop in this demonstration."}
+        </p>
         <div className="protected-grid">
           {data.league.roster.map((p) => (
             <label key={p.id} className="check-label">

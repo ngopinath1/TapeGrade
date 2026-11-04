@@ -185,6 +185,9 @@ class SleeperLeagueProvider:
             return {
                 "id": internal_id + ":" + pid,
                 "external_id": pid,
+                "birth_date": p.get("birth_date"),
+                "nba_id": p.get("nba_id"),
+                "sportradar_id": p.get("sportradar_id"),
                 "name": name or f"Unknown player (Sleeper {pid})",
                 "team": p.get("team") or "—",
                 "positions": positions if isinstance(positions, list) else [],
@@ -222,7 +225,10 @@ class SleeperLeagueProvider:
         available = [
             map_player(pid)
             for pid, p in directory.items()
-            if p.get("active") is True and p.get("team") and pid not in assigned
+            if p.get("active") is True
+            and p.get("team")
+            and pid not in assigned
+            and p.get("position") in {"PG", "SG", "SF", "PF", "C", "G", "F"}
         ]
         manager = next((u for u in view["users"] if u.get("user_id") == uid), {})
         roster_settings = own.get("settings") or {}
@@ -252,6 +258,10 @@ class SleeperLeagueProvider:
                 max(0, budget - used) if budget is not None and used is not None else None
             ),
             "scoring": {"type": "points", "weights": weights},
+            "rule_settings": league.get("settings") or {},
+            "roster_positions": league.get("roster_positions") or [],
+            "protections_reviewed": False,
+            "rules": {},
             "period": period,
             "period_points": total,
             "points_warning": points_warning,

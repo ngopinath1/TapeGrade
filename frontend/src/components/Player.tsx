@@ -4,9 +4,11 @@ import type { Player } from "../types";
 export function Sparkline({
   values,
   muted = false,
+  label = "Seven-game sample trend",
 }: {
   values: number[];
   muted?: boolean;
+  label?: string;
 }) {
   if (values.length < 2) return <span className="muted">Unavailable</span>;
   const min = Math.min(...values) - 2,
@@ -18,12 +20,7 @@ export function Sparkline({
     )
     .join(" ");
   return (
-    <svg
-      width="74"
-      height="28"
-      viewBox="0 0 74 28"
-      aria-label="Seven-game sample trend"
-    >
+    <svg width="74" height="28" viewBox="0 0 74 28" aria-label={label}>
       <polyline
         points={pts}
         fill="none"

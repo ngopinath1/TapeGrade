@@ -56,6 +56,16 @@ export function Candidates({
                 <span>
                   {c.player.film_only ? (
                     "Film test · stats unavailable"
+                  ) : c.player.is_demo === false ? (
+                    <>
+                      <b>{c.player.recent_fantasy_average ?? "—"}</b> FPTS/game{" "}
+                      <i>·</i> n={c.player.recent?.sample_size ?? 0}
+                      <i>·</i>{" "}
+                      {c.player.minutes !== null &&
+                      c.player.previous_minutes !== null
+                        ? `${c.player.minutes - c.player.previous_minutes >= 0 ? "+" : ""}${(c.player.minutes - c.player.previous_minutes).toFixed(1)} MIN`
+                        : "Minute trend unavailable"}
+                    </>
                   ) : (
                     <>
                       <b>{c.player.fantasy_points}</b> FPTS <i>·</i>{" "}

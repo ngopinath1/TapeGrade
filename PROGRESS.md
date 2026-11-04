@@ -28,8 +28,8 @@ Last verified: November 4, 2026, America/New_York.
 
 ## Verified results
 
-- **65 backend tests passed** on Python 3.12.14.
-- **7 frontend tests passed**; TypeScript and Vite production build passed.
+- **138 backend tests passed** on Python 3.12.14.
+- **11 frontend tests passed**; TypeScript and Vite production build passed.
 - One upstream Starlette TestClient deprecation warning; no test failures.
 - Offline end-to-end HTTP fixture exercises all three actual clients, with 8 accounted fixture calls.
   Actual critic output changes SAM from frame-0 to frame-6 spatial guidance. This is not paid inference.
@@ -57,11 +57,11 @@ Last verified: November 4, 2026, America/New_York.
    and no fantasy move was generated. Validate broader footage and licensed player
    statistics before claiming current fantasy scouting accuracy. Do not run paid
    tests automatically.
-2. **Recent NBA candidate statistics unavailable.** Direct Sleeper NBA roster,
-   scoring and reported period-point import works for the tested league. This is
-   observed compatibility by ID, while automatic discovery is documented NFL-only.
-   Minutes, box scores and recent candidate trends are missing. Connected-league
-   recommendation scans are blocked before model use until that feed is added.
+2. **Recent NBA statistics connected via Sportradar trial.** A genuine seven-day
+   import provides 39 closed games and 1,367 observations. Exact recent coverage
+   supports 100 free agents and 6 roster players; short samples, DNPs and unknown
+   fields remain explicit. Film identity/quality and current eligibility/locks
+   still gate the genuine recommendation test. See the latest milestone below.
 3. Shot/defensive action detection, calibration and category scoring are future work.
 4. Original sample footage is schematic, not a real-game benchmark. Mock models reject
    uploaded-footage identity verification rather than fabricate an analysis.
@@ -251,3 +251,138 @@ With all three services running in mock mode:
 - No statistics subscription/key/trial was created and no new Meta inference was
   requested. This documentation turn did not change product code, restart services,
   commit, push or deploy. Existing test results remain the last executed validation.
+
+
+## November 4: statistics, exact scoring and live preflight
+
+- Added independent BALLDONTLIE statistics and normalized JSON-import adapters,
+  validated per-game records, persistent identity/game tables, durable explicit
+  refresh jobs, bounded pagination/timeouts, source receipts and correction upserts.
+- Implemented exact per-game bonuses/aliases, missing-field reasons and comparable
+  sourced recent summaries for rostered and unrostered players. Period totals keep
+  their original field. Missing technical/flagrant fouls remain unavailable.
+- Readiness is computed from fresh real coverage, mapping and rule/protection
+  evidence. Synthetic fixtures cannot enable a real league. Refreshes retain
+  separate statistics and frozen job checkpoints rather than overwriting evidence.
+- Added League setup for refresh/import, identity review, rule review, current
+  eligibility and game-log inspection. Protected choices must be explicitly saved.
+- Fixed normal live league provenance/events/cards, optional workspace selector,
+  nullable bids, current membership/protection/lock/position checks and artwork
+  selection. Preflight blocks scans without a supported legal reviewed pair before
+  inference. Final staging repeats the checks after model work.
+- Structured spatial retries retain verified object IDs/roles and use an inspected
+  frame. Target-only concept retries cannot silently lose defender/ball bindings.
+  Existing 75% quality and confidence gates remain; the prior genuine 55% result
+  still cannot support an ADD.
+- Actual read-only Sleeper refresh succeeded: 14 rostered players and 413 active
+  unrostered athletes, excluding 30 team-defense entries in the directory.
+  Raw `game_mode=1`, `waiver_type=0` remain uninterpreted pending source-backed review.
+- Prepared a four-second provisional Sam Hauser excerpt at source seconds 58–62.
+  Identity/date/season and acquisition eligibility remain unverified; zero new
+  Spark/SAM/Image requests were made for this footage. Full source stays local.
+- **108 backend tests, 9 frontend tests, TypeScript/Vite build and diff checks passed.**
+  The real-league-shaped offline contract uses all three actual clients and an
+  actual structured spatial retry within eight fixture calls, zero paid requests.
+  Synthetic gates are overridden only inside that isolated test after confirming
+  the production path rejects them. A labeled PNG, full game/film evidence JSON,
+  referenced media and ZIP are under ignored `data/cache/contract-scan/`.
+- Actual API preflight returns HTTP 409 with zero new scan jobs/model-call rows.
+  The genuine recommendation test is **not run**: no statistics source key/import,
+  no verified 40/50 rule behavior or mode/waiver review, no protection selections,
+  no verified named candidate film or current player-lock evidence.
+- Local API/frontend/worker remain available, scheduler off, one candidate/five-second
+  clips/zero retries/six-call live cap. SQLite was backed up using its backup API
+  before additive tables/index initialization. No .env edits, subscriptions,
+  transactions, commits, pushes or deployments.
+- See docs/STATISTICS.md for setup, coverage policy, endpoints and remaining work.
+
+
+## November 4: owner-confirmed rules and optional protections
+
+- Saved the owner's explicit confirmation: Lock-In, FAAB with a $100 season budget,
+  and stacking 40/50-point bonuses. Kept the evidence scoped to this league rather
+  than treating numeric API codes as universal meanings. Returned remaining FAAB
+  remains sourced from Sleeper; a configured season budget is not assumed to be
+  the amount remaining.
+- Removed the mandatory protection-review gate. Existing user-selected protections
+  remain enforced; all other players can be considered from verified current stats.
+  The frontend picker explains the optional policy and retains manual choices.
+  The current Sleeper connection does not provide a verified do-not-drop list.
+- Added a confirmed FAAB season-budget field and reject a value that conflicts
+  with Sleeper's reported season budget. The missing statistics feed remains a
+  real blocker; these confirmations do not invent current game logs.
+- Researched source options against official documentation. Sportradar NBA's game
+  summary explicitly includes player technical/flagrant foul fields; marketplace
+  trial access is a candidate for evaluation. No account/trial/subscription was
+  started. A Sportradar adapter is still required; its key cannot be used in the
+  existing BALLDONTLIE adapter. See docs/STATISTICS.md.
+
+- Follow-up validation: 110 backend tests, 10 frontend tests and production build
+  passed. Read-only HTTP verification confirms the saved rules and that only the
+  missing recent-statistics snapshot remains in the league readiness reasons.
+
+
+## November 4: connected Sportradar NBA adapter
+
+- User supplied the NBA trial key and authorized connecting real game logs. Saved
+  it only in ignored `.env` with mode 0600, preserved the existing Meta key, and
+  selected Sportradar trial access with a seven-day window. No account, trial or
+  paid subscription was created by the app; the user obtained access.
+- Implemented the official NBA v8 Schedule/Game Summary adapter with header auth,
+  Eastern game dates, closed-game filtering, strict normalized counts, source
+  hashes, original observation timestamps, correction-aware cache and complete
+  window validation. Queued jobs retain provider/access/window/request/time/pacing
+  limits without credentials. Scans read the persisted snapshot.
+- Added unique shared Sportradar IDs from Sleeper for identity mapping. Names alone
+  remain review proposals; conflicts remain ambiguous. Source changes invalidate
+  readiness until a matching snapshot exists. No fabricated zeros fill fouls.
+- Trial requests at the initial faster intervals encountered 429s and stopped.
+  A four-second post-response gap and 180-second timeout completed the same bounded
+  window under the unchanged 60-request cap. Failed jobs remain in history.
+- Successful complete network refresh: 39 games, 1,367 player observations,
+  527 athletes, 38 requests and 2 cache hits. Cache-only DNP normalization reused
+  all 39 receipts with zero additional network requests and kept original per-game
+  fetch timestamps. Idempotent storage remains 1,367 rows.
+- Readiness now derives true for the actual data snapshot: 100 supported unrostered
+  candidates and 6 supported roster comparison subjects. Other roster members have
+  two played games or explicit DNPs; no short sample or DNP is represented as a
+  three/five-game average. Period totals remain separate from recent per-game scores.
+- Nonzero non-unsportsmanlike technical fouls remain unavailable until their Sleeper
+  scoring treatment is verified. Personal/team/coach fouls never substitute.
+- Sleeper added `last_scored_leg` on refresh. Classified it as scoring progress,
+  retained the owner's confirmed Lock-In/FAAB-$100/stacking rules, and added a
+  regression test for rule preservation.
+- **134 backend tests, 10 frontend tests, production build and diff checks passed.**
+  Browser verification shows the connected source, actual roster averages and
+  explicit DNP counts. HTTP checks confirm source/player-log endpoints, credential
+  redaction, zero active scans and zero new model-call rows. Current reviewed legal
+  add/drop pair count remains zero; no recommendation scan was forced.
+- Evidence: ignored `data/cache/sportradar/connection-report.json`, `http-smoke.json`,
+  `connected-game-logs.jpg`, `live-job.json`; raw hashes/manifests under
+  `data/cache/stats/sportradar/`. A SQLite backup preceded the real import.
+- Local API/frontend/worker remain running. Scheduling is off; the Meta profile
+  still permits one candidate, five seconds, zero SAM retries and six maximum calls.
+  No new Meta inference, fantasy transaction, commit, push or deployment occurred.
+
+
+## Scan usability fix — November 4, 2026
+
+- The user's latest game-log refresh completed successfully; the displayed error
+  came from scan transaction preflight and persisted during unrelated actions.
+- Separate statistics/film readiness from transaction readiness. Unknown waiver
+  status or drop locks permits a scouting report, with a visible report-only notice.
+- Unknown eligibility withholds every ADD verdict and staged move, including a
+  model ADD with no proposed move. Current rules, membership, protections,
+  comparable scores, budget and position fit remain required for recommendations.
+- Bootstrap and enqueue share read-only preflight. Both the desk and League setup
+  show the actual filmed candidate: currently Sam Hauser, with provisional footage
+  whose identity must pass model verification. This is not verified ADD evidence.
+- Added Refresh Sleeper roster with a fresh provider client, distinct from game-log
+  refresh. Added concrete candidate/drop review steps; successful setup actions
+  clear old scan errors. Preserved live limits in ignored `.env` for future restarts:
+  1 candidate, 0 SAM retries, 6 calls, 5-second clips, scheduler off. Keys preserved.
+- Validation: 138 backend tests, 11 frontend tests, production build, actual
+  localhost preflight ready with zero legal pairs; no scan was started and no
+  new inference was requested. Offline HTTP contracts cover both reviewed and
+  unknown eligibility paths through a completed scan, PNG and evidence download.
+- API/worker reloaded. Audit: `data/cache/scan-usability/verified-readiness.json`.

@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     perception_quality_threshold: float = Field(0.75, ge=0, le=1)
     scheduler_enabled: bool = False
     worker_poll_seconds: float = 1
+    nba_stats_provider: Literal["none", "balldontlie", "sportradar", "import"] = "none"
+    balldontlie_api_key: SecretStr = SecretStr("")
+    sportradar_api_key: SecretStr = SecretStr("")
+    sportradar_access_level: Literal["trial", "production"] = "trial"
+    sportradar_min_interval_seconds: float = Field(4.0, ge=1.05, le=10)
+    stats_window_days: int = Field(30, ge=7, le=30)
+    stats_max_pages: int = Field(60, ge=1, le=100)
+    stats_timeout_seconds: int = Field(90, ge=5, le=180)
+    stats_fresh_hours: int = Field(24, ge=1, le=48)
     # Heartbeats/leases are refreshed by the worker around each expensive operation.
     job_lease_seconds: int = 600
 

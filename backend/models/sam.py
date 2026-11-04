@@ -19,7 +19,9 @@ from backend.models.transport import MetaTransport, data_url
 from backend.services.clips import media_url
 
 
-def seed_prompt(clip: dict, objects: list[dict]) -> str:
+def seed_prompt(clip: dict, objects: list[dict], frame: int = 0) -> str:
+    if not 0 <= frame < clip["duration"] * clip["fps"]:
+        raise ModelError("Spatial correction frame is outside the clip.")
     ids = set()
     for obj in objects:
         x1, y1, x2, y2 = obj["box"]
@@ -35,7 +37,7 @@ def seed_prompt(clip: dict, objects: list[dict]) -> str:
                 id=o["id"],
                 prompts=[
                     FramePrompt(
-                        frame=0,
+                        frame=frame,
                         box=PromptBox(o["box"][0], o["box"][1], o["box"][2] + 1, o["box"][3] + 1),
                     )
                 ],
@@ -43,6 +45,24 @@ def seed_prompt(clip: dict, objects: list[dict]) -> str:
             for o in objects
         ],
     )
+
+
+def corrected_prompt(clip, original_objects, critique):
+    """Use reviewed spatial corrections without losing defender/ball role IDs."""
+    if critique.retry_objects:
+        objects = [o.model_dump() for o in critique.retry_objects]
+        before = {o["id"]: o["role"] for o in original_objects}
+        after = {o["id"]: o["role"] for o in objects}
+        sampled = {f["frame"] for f in clip["frames"]}
+        if before != after or critique.retry_frame not in sampled:
+            raise ModelError(
+                "Spatial correction must preserve verified role bindings and reference an inspected frame."
+            )
+        return seed_prompt(clip, objects, critique.retry_frame)
+    # Free-form concept ordinals cannot retain multiple spatial role bindings.
+    if len(original_objects) > 1 and not critique.refined_prompt.strip().startswith("<"):
+        return None
+    return critique.refined_prompt.strip() or None
 
 
 def parse_tracking(

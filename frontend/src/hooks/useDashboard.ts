@@ -56,7 +56,7 @@ export function useDashboard() {
     try {
       const next = await api<{ id: string }>("/scans", {
         method: "POST",
-        body: JSON.stringify({ instruction }),
+        body: JSON.stringify({ instruction, league_id: data?.league.id }),
         headers: { "Idempotency-Key": crypto.randomUUID() },
       });
       setScan(null);

@@ -9,6 +9,7 @@ from backend.db.database import initialize
 from backend.services.state import seed_demo
 from backend.services.state import get_league
 from backend.api.routes import router
+from backend.api.stats import router as stats_router
 
 
 @asynccontextmanager
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Idempotency-Key"],
 )
 app.include_router(router)
+app.include_router(stats_router)
 for directory in ("cache", "uploads", "samples"):
     (settings.data_dir / directory).mkdir(parents=True, exist_ok=True)
     # Mount only media directories, never the database or root environment files.

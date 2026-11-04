@@ -44,7 +44,8 @@ export function Roster({ data }: { data: Bootstrap }) {
               <th>
                 {live ? `PERIOD ${data.league.period ?? "—"} FPTS` : "FPTS"}
               </th>
-              <th>7-GAME TREND</th>
+              {live && <th>RECENT FPTS / GAME</th>}
+              <th>{live ? "OBSERVED TREND" : "7-GAME TREND"}</th>
               <th>STATUS</th>
             </tr>
           </thead>
@@ -66,9 +67,22 @@ export function Roster({ data }: { data: Bootstrap }) {
                   <span className="muted">/ {p.previous_minutes ?? "—"}</span>
                 </td>
                 <td className="numeric">{p.fantasy_points ?? "—"}</td>
+                {live && (
+                  <td className="numeric" title={p.recent?.reasons.join(" ")}>
+                    {p.recent_fantasy_average ?? "—"}
+                    <small className="muted">
+                      {p.recent
+                        ? ` · n=${p.recent.sample_size}`
+                        : " · no game logs"}
+                    </small>
+                  </td>
+                )}
                 <td>
                   <Sparkline
                     values={p.trend}
+                    label={
+                      live ? `${p.trend.length}-game observed trend` : undefined
+                    }
                     muted={p.trend.at(-1)! < p.trend[0]}
                   />
                 </td>

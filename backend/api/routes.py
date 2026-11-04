@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from backend.api.types import Guardrails, ScanRequest
@@ -21,6 +22,7 @@ from backend.db.schema import (
 )
 from backend.services.clips import inspect_video, local_path, prepare_clip
 from backend.services.state import get_guardrails, get_league, save_league, select_demo
+from backend.services.scan_readiness import scan_readiness
 from backend.worker.scan import enqueue
 from backend.models.base import ModelError
 from backend.providers.sleeper import ProviderError, SleeperLeagueProvider
@@ -61,15 +63,42 @@ def sleeper_league(league_id: str):
         raise HTTPException(422, str(e))
 
 
+@router.post("/sleeper/refresh")
+def refresh_sleeper():
+    league = get_league()
+    connection = league.get("connection") or {}
+    if league.get("is_demo", True) or not all(
+        connection.get(k) for k in ("user_id", "username", "league_id")
+    ):
+        raise HTTPException(409, "Connect a Sleeper NBA league before refreshing.")
+    try:
+        # A fresh client bypasses the in-memory five-minute membership cache.
+        provider = SleeperLeagueProvider()
+        try:
+            snapshot = provider.snapshot_for(
+                {"user_id": connection["user_id"], "username": connection["username"]},
+                connection["league_id"],
+            )
+        finally:
+            provider.client.close()
+        save_league(snapshot)
+        return {"saved": True, "fetched_at": snapshot["fetched_at"]}
+    except ProviderError as e:
+        raise HTTPException(422, str(e))
+
+
 @router.get("/bootstrap")
 def bootstrap():
     league = get_league()
+    guards = get_guardrails()
+    readiness, _ = scan_readiness(league, guards)
     with session_scope() as s:
         ids = {p["id"] for p in league["roster"] + league["available"]}
         watch = [r.player_id for r in s.scalars(select(Watchlist)) if r.player_id in ids]
     return {
         "league": league,
-        "settings": get_guardrails().model_dump(),
+        "settings": guards.model_dump(),
+        "scan_readiness": readiness,
         "watchlist": watch,
         "models_mode": "mock" if settings.mock_models else "live",
         "demo_mode": league.get("is_demo", True),
@@ -100,7 +129,7 @@ def save_settings(value: Guardrails):
             s.get(GuardrailSettings, "local").data = value.model_dump()
         else:
             row = s.get(League, league["id"])
-            row.data = {**row.data, "guardrails": value.model_dump()}
+            row.data = {**row.data, "guardrails": value.model_dump(), "protections_reviewed": True}
         # A saved recommendation cannot bypass a newly tightened guardrail.
         for row in s.scalars(
             select(ScanRun).where(ScanRun.stage == "COMPLETED", ScanRun.league_id == league["id"])
@@ -123,7 +152,8 @@ def save_settings(value: Guardrails):
                     "Recommendation withdrawn after guardrails changed. Run a new scan."
                 )
             else:
-                move["faab_bid"] = min(move["faab_bid"], value.max_faab_bid)
+                if move.get("faab_bid") is not None:
+                    move["faab_bid"] = min(move["faab_bid"], value.max_faab_bid)
                 result["staged_move"] = move
             row.result = result
             staged = s.scalar(select(StagedMove).where(StagedMove.scan_id == row.id))
@@ -166,6 +196,10 @@ def history():
 
 @router.post("/scans", status_code=202)
 def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
+    if value.league_id is not None and value.league_id != get_league()["id"]:
+        raise HTTPException(
+            409, "Selected workspace differs from the requested league. Reload before scanning."
+        )
     if not settings.demo_mode and get_league().get("is_demo", True):
         raise HTTPException(
             409,
@@ -260,11 +294,15 @@ def watch(player_id: str):
 
 @router.get("/clips")
 def clips():
+    league_id = get_league()["id"]
     with session_scope() as s:
         return [
             c.data
             for c in s.scalars(
-                select(Clip).where(Clip.is_demo == False).order_by(Clip.created_at.desc())
+                select(Clip)
+                .join(Player, Clip.player_id == Player.id)
+                .where(Clip.is_demo == False, Player.league_id == league_id)
+                .order_by(Clip.created_at.desc())
             )
         ]
 
@@ -341,3 +379,39 @@ def card_download(scan_id: str):
             raise HTTPException(404, "Tape Card not available")
         path = local_path(run.result["card"]["url"])
     return FileResponse(path, media_type="image/png", filename=f"tapegrade-{scan_id[:8]}.png")
+
+
+@router.get("/scans/{scan_id}/evidence")
+def evidence_download(scan_id: str):
+    from backend.db.schema import ModelCall
+
+    with session_scope() as s:
+        run = s.get(ScanRun, scan_id)
+        if not run:
+            raise HTTPException(404, "Scan not found")
+        calls = s.scalars(select(ModelCall).where(ModelCall.scan_id == scan_id)).all()
+        events = s.scalars(
+            select(JobEvent).where(JobEvent.scan_id == scan_id).order_by(JobEvent.id)
+        ).all()
+        return JSONResponse(
+            {
+                "scan": scan_json(run),
+                "checkpoint": run.checkpoint,
+                "model_calls": [
+                    {
+                        "model": c.model,
+                        "operation": c.operation,
+                        "status": c.status,
+                        "duration_ms": c.duration_ms,
+                    }
+                    for c in calls
+                ],
+                "events": [
+                    {"stage": e.stage, "actor": e.actor, "message": e.message, "detail": e.detail}
+                    for e in events
+                ],
+            },
+            headers={
+                "Content-Disposition": f'attachment; filename="tapegrade-{scan_id[:8]}-evidence.json"'
+            },
+        )

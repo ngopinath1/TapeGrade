@@ -177,3 +177,17 @@ def test_connection_persists_and_isolates_guardrails_jobs_and_demo_history(
         == 200
     )
     assert client.get("/api/settings").json() == guard
+
+
+def test_team_defense_directory_entries_are_not_free_agent_athletes(sleeper_fixture):
+    provider, data, calls, transport = sleeper_fixture
+    data["/v1/players/nba"]["TEAM"] = {
+        "first_name": "Fixture",
+        "last_name": "Team",
+        "team": "NYK",
+        "position": "DEF",
+        "fantasy_positions": ["DEF"],
+        "active": True,
+    }
+    snapshot = provider.connect("scout", league_id="123")["snapshot"]
+    assert all(p["external_id"] != "TEAM" for p in snapshot["available"])

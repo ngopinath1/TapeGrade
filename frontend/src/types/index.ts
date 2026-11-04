@@ -15,6 +15,27 @@ export type Player = {
   lineup_status?: string;
   injury_status?: string | null;
   stats: Record<string, number>;
+  recent_fantasy_average?: number | null;
+  recent?: {
+    ready: boolean;
+    sample_size: number;
+    recorded_dnp_count?: number;
+    unknown_participation_count?: number;
+    window_start: string;
+    window_end: string;
+    provider: string;
+    fetched_at: string;
+    reasons: string[];
+    games: {
+      row_id: string;
+      game_id: string;
+      date: string;
+      minutes: number | null;
+      score: number | null;
+      source_ref: string;
+      coverage: string[];
+    }[];
+  };
 };
 export type Guardrails = {
   min_confidence: number;
@@ -47,11 +68,34 @@ export type League = {
   compatibility?: string;
   scouting_ready?: boolean;
   scouting_unavailable_reason?: string;
+  readiness_reasons?: string[];
+  protections_reviewed?: boolean;
+  rules?: {
+    game_mode?: string;
+    waiver_mode?: string;
+    point_bonus_mode?: string;
+    source_ref?: string;
+    faab_budget?: number | null;
+  };
+  rule_settings?: Record<string, unknown>;
+  stats_coverage?: { ready_candidates: number; ready_drops: number };
   roster: Player[];
   available: Player[];
   notice: string;
 };
 export type Bootstrap = {
+  scan_readiness?: {
+    ready: boolean;
+    blockers: string[];
+    notice: string | null;
+    eligible_pair_count: number;
+    candidates: {
+      id: string;
+      name: string;
+      eligible_drop_ids: string[];
+      transaction_issues: string[];
+    }[];
+  };
   league: League;
   settings: Guardrails;
   watchlist: string[];
@@ -138,7 +182,7 @@ export type Candidate = {
 export type Move = {
   add_player: Player;
   drop_player: Player;
-  faab_bid: number;
+  faab_bid: number | null;
   reasoning: string;
   status: string;
   executed: boolean;
@@ -175,6 +219,7 @@ export type Scan = {
     card_error: string | null;
     guardrail_notice?: string;
     simulated: boolean;
+    league_is_demo?: boolean;
     shortlist: { roster_need: string; reasoning: string };
   } | null;
 };
