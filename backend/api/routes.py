@@ -92,6 +92,8 @@ def bootstrap():
     league = get_league()
     guards = get_guardrails()
     readiness, _ = scan_readiness(league, guards)
+    from backend.services.scan_workflow import workflow_status
+
     with session_scope() as s:
         ids = {p["id"] for p in league["roster"] + league["available"]}
         watch = [r.player_id for r in s.scalars(select(Watchlist)) if r.player_id in ids]
@@ -99,6 +101,7 @@ def bootstrap():
         "league": league,
         "settings": guards.model_dump(),
         "scan_readiness": readiness,
+        "workflow": workflow_status(league),
         "watchlist": watch,
         "models_mode": "mock" if settings.mock_models else "live",
         "demo_mode": league.get("is_demo", True),
@@ -176,6 +179,7 @@ def scan_json(row):
         "live_calls": row.live_calls,
         "source": row.source,
         "result": row.result,
+        "action_needed": row.checkpoint.get("recovery"),
     }
 
 
@@ -222,7 +226,13 @@ def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
         if active:
             return {"id": active.id, "existing": True}
     try:
-        return {"id": enqueue(value.instruction, request_key=idempotency_key)}
+        return {
+            "id": enqueue(
+                value.instruction,
+                request_key=idempotency_key,
+                prepare=not settings.mock_models and not get_league().get("is_demo", True),
+            )
+        }
     except ModelError as e:
         raise HTTPException(409, str(e))
 
@@ -274,6 +284,13 @@ def retry_scan(scan_id: str):
                 raise HTTPException(409, str(e))
             return {"id": row.id}
         row.stage, row.error, row.lease_until = "QUEUED", None, 0
+        if row.checkpoint.get("automatic_preparation") and not row.checkpoint.get(
+            "preparation_done"
+        ):
+            checkpoint = dict(row.checkpoint)
+            checkpoint.pop("stats_refresh_id", None)
+            checkpoint.pop("roster_refreshed", None)
+            row.checkpoint = checkpoint
         return {"id": row.id}
 
 

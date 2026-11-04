@@ -53,11 +53,14 @@ def enqueue_refresh(league, batch=None, factory=None):
         return row.id
 
 
-def run_once(factory=None, provider=None):
+def run_once(factory=None, provider=None, refresh_id=None):
     with session_scope(factory) as s:
         row = s.scalar(
             select(StatsRefresh)
-            .where(StatsRefresh.status == "QUEUED")
+            .where(
+                StatsRefresh.status == "QUEUED",
+                *([StatsRefresh.id == refresh_id] if refresh_id else []),
+            )
             .order_by(StatsRefresh.created_at)
             .limit(1)
         )

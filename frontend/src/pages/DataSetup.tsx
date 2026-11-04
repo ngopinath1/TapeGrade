@@ -3,6 +3,7 @@ import { RefreshCw, Upload } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { api } from "../lib/api";
 import { ScanReadiness } from "../components/ScanReadiness";
+import type { SetupSection } from "../components/ScoutingGuide";
 import { SectionTabs } from "../components/SectionTabs";
 
 type Proposal = {
@@ -35,12 +36,25 @@ export function DataSetup({
   data,
   onRefresh,
   onError,
+  initialSection,
+  onDone,
 }: {
   data: Bootstrap;
+  initialSection?: SetupSection;
+  onDone?: () => void;
   onRefresh: () => Promise<void>;
   onError: (message: string) => void;
 }) {
-  const [section, setSection] = useState("overview");
+  const sectionId = (value?: SetupSection) =>
+    value === "statistics"
+      ? "overview"
+      : value === "coverage"
+        ? "logs"
+        : (value ?? "overview");
+  const [section, setSection] = useState(sectionId(initialSection));
+  useEffect(() => {
+    setSection(sectionId(initialSection));
+  }, [initialSection]);
   const importInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -160,7 +174,7 @@ export function DataSetup({
             onClick={() =>
               void act(
                 () => api("/stats/refresh", { method: "POST" }),
-                "Refresh queued; the worker will fetch a bounded window.",
+                "Game-log refresh queued. You can keep using TapeGrade while it updates.",
               )
             }
           >
@@ -398,9 +412,10 @@ export function DataSetup({
               ))}
             </div>
           ))}
-        {!proposals.length && (
+        {!proposals.some((p) => p.status !== "verified") && (
           <p className="data-note">
-            Import or refresh game logs to generate mapping proposals.
+            No unresolved player matches. Import or refresh game logs to check
+            for new matches.
           </p>
         )}
       </section>
@@ -621,6 +636,11 @@ export function DataSetup({
   };
   return (
     <div className="data-setup">
+      {onDone && (
+        <button className="text-link" onClick={onDone}>
+          Back to scouting
+        </button>
+      )}
       <p className="page-description">
         Set up the evidence your scouting reports rely on.
       </p>

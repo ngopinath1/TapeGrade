@@ -52,8 +52,9 @@ export function SleeperDialog({
         <div className="section-label">League connection</div>
         <h2 id="sleeper-title">Connect your Sleeper league.</h2>
         <p>
-          Import your roster, scoring rules, and period points with your Sleeper
-          username and NBA league ID.
+          Enter your username and NBA league ID. TapeGrade imports your roster
+          and scoring settings, then refreshes them when you run a scan. No
+          Sleeper password is needed.
         </p>
         <form
           onSubmit={async (e) => {
@@ -98,6 +99,7 @@ export function SleeperDialog({
               value={leagueId}
               onChange={(e) => setLeagueId(e.target.value.trim())}
               inputMode="numeric"
+              required
               pattern="[0-9]{1,30}"
               maxLength={30}
               placeholder="From your Sleeper league URL"
@@ -109,11 +111,7 @@ export function SleeperDialog({
             ) : (
               <Search size={16} />
             )}
-            {leagueId
-              ? connection
-                ? "Refresh league"
-                : "Connect NBA league"
-              : "Look up account"}
+            {connection ? "Refresh league" : "Connect NBA league"}
           </button>
         </form>
         {error && (
@@ -180,7 +178,8 @@ export function SleeperDialog({
           <summary>About NBA league connections</summary>
           <p>
             NBA access is verified by league ID. Automatic league discovery is
-            documented for NFL only.
+            documented for NFL only. TapeGrade reads league data and never
+            submits roster moves.
           </p>
           <a
             className="text-link"

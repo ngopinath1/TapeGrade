@@ -52,7 +52,10 @@ export function Settings({
             <label className="setting-row">
               <span>
                 Minimum verdict confidence
-                <small>Required for an ADD recommendation.</small>
+                <small>
+                  Required for an ADD recommendation. This is analysis
+                  confidence, not a probability of future success.
+                </small>
               </span>
               <span className="range-control">
                 <input
@@ -146,6 +149,7 @@ export function Settings({
               <input
                 type="checkbox"
                 checked={value.schedule_enabled}
+                disabled={!data.scheduler_available}
                 onChange={(event) =>
                   setValue({ ...value, schedule_enabled: event.target.checked })
                 }
@@ -158,6 +162,7 @@ export function Settings({
               <select
                 aria-label="Additional pre-waiver scan (Eastern)"
                 value={value.pre_waiver_hour ?? ""}
+                disabled={!data.scheduler_available}
                 onChange={(event) =>
                   setValue({
                     ...value,
@@ -179,8 +184,8 @@ export function Settings({
           </div>
           <p className="settings-description">
             {data.scheduler_available
-              ? "Keep the worker running for scheduled scans."
-              : "Scheduling is unavailable in this environment. Your preferences will be saved for when it is enabled."}
+              ? "Available while this Mac is awake and TapeGrade’s worker is running. Recommendations still need your review."
+              : "Scheduled scans are unavailable in this environment. Run a manual scan from the scouting desk."}
           </p>
         </fieldset>
         <details className="mode-settings">

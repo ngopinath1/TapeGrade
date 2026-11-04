@@ -34,6 +34,18 @@ class SeedObject(StrictModel):
         max_length=4,
         description="Inclusive source-pixel x1,y1,x2,y2. Verification uses frame 0; retry objects use retry_frame.",
     )
+    team_code: str | None = None
+    jersey_number: str | None = None
+    jersey_readable: bool = False
+
+
+class IdentityObservation(StrictModel):
+    frame: int = Field(ge=0)
+    jersey_number: str | None
+    team_code: str | None
+    legibility: Literal["clear", "unclear"]
+    box: list[int] = Field(min_length=4, max_length=4)
+    evidence: str
 
 
 class ClipVerification(StrictModel):
@@ -42,6 +54,23 @@ class ClipVerification(StrictModel):
     reason: str
     target_description: str
     objects: list[SeedObject] = Field(default_factory=list, max_length=16)
+    identity_observations: list[IdentityObservation] = Field(default_factory=list, max_length=5)
+    continuity_frames: list[int] = Field(default_factory=list, max_length=5)
+
+
+class ClipIdentityCheck(StrictModel):
+    clip_id: str
+    verification: ClipVerification
+
+
+class ClipIdentityChecks(StrictModel):
+    clips: list[ClipIdentityCheck] = Field(min_length=1, max_length=2)
+
+
+class TrackIdentityCheck(StrictModel):
+    object_id: int = Field(ge=1, le=14)
+    identity_preserved: bool
+    reason: str
 
 
 class Criticism(StrictModel):
@@ -55,6 +84,10 @@ class Criticism(StrictModel):
     explanation: str
     retry_objects: list[SeedObject] = Field(default_factory=list, max_length=16)
     retry_frame: int = Field(0, ge=0)
+    target_identity_preserved: bool | None = None
+    team_roles_preserved: bool | None = None
+    role_conflicts: list[str] = Field(default_factory=list)
+    player_identity_checks: list[TrackIdentityCheck] = Field(default_factory=list, max_length=14)
 
 
 class TrackingObject(StrictModel):

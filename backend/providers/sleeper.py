@@ -266,6 +266,15 @@ class SleeperLeagueProvider:
             "period_points": total,
             "points_warning": points_warning,
             "roster": [map_player(pid, True) for pid in own_ids],
+            "other_rostered": [
+                map_player(pid)
+                for pid in sorted(
+                    assigned
+                    - set(own_ids)
+                    - set(own.get("reserve") or [])
+                    - set(own.get("taxi") or [])
+                )
+            ],
             "available": sorted(available, key=lambda p: p["name"]),
             "connection": {
                 "username": user.get("username") or user.get("display_name"),

@@ -10,6 +10,28 @@ Built for the Meta Global AI Developer Hackathon, Indie Developer track.
 
 ## Start here
 
+The normal workflow is **connect your league → run a live scan → review the report**.
+Live scans refresh the Sleeper roster, update game logs older than 60 minutes,
+shortlist players, look for permitted footage and build a report with actual Meta
+API clients. They never fall back to simulated analysis. API and data credentials
+stay on the server.
+
+Start the bounded live profile with `bash scripts/dev-live.sh`, connect your NBA
+league in the app, and choose **Run live scan**. It allows one candidate, five-second
+clips, no automatic tracking retries and at most six model calls. Existing scoring
+confirmations and protections are preserved during roster refreshes. A new league
+with ambiguous scoring rules may need one initial rule confirmation.
+
+Automatic footage processing uses existing uploads, an **authorized footage catalog**,
+or user-enabled public ESPN highlights. With `PUBLIC_FOOTAGE_ANALYSIS_ENABLED=1`,
+a recent player-specific direct MP4 is imported as a short excerpt with attribution,
+then checked for identity and tracking quality. Authentication and DRM restrictions
+are never bypassed. Sources without usable media remain viewing links and do not
+contribute film measurements. See [automatic footage setup](docs/AUTOMATIC_SCANNING.md).
+
+For the no-account, no-credit fictional demonstration, explicitly start
+`bash scripts/dev-demo.sh`. Keep demo and live results distinct.
+
 The entire mock demonstration runs without accounts, API keys, third-party data,
 or downloaded sports footage. It uses **fictional players and statistics**, original
 procedural basketball footage, and deterministic simulated model responses.
@@ -51,9 +73,9 @@ your environment file alone. The lock files record the dependencies tested here;
 
 ### Environment
 
-No `.env` is needed for the mock demo; safe defaults are built in. When you want
-to configure it, **manually** copy `.env.example` to `.env` if you do not already
-have one, and edit it. Never overwrite an existing file containing your key.
+The explicit demo launcher runs without `.env`. Live mode is the default; configure
+it by **manually** copying `.env.example` to `.env` if you do not already have one,
+and edit it. Never overwrite an existing file containing your key.
 
 ```bash
 git check-ignore .env
@@ -97,7 +119,7 @@ for local jobs and schedules to run. Nothing is deployed or pushed.
 
 ### First demonstration
 
-1. Keep `MOCK_MODELS=1` and `DEMO_MODE=1`.
+1. Start `bash scripts/dev-demo.sh` (`MOCK_MODELS=1`, `DEMO_MODE=1`).
 2. Open the dashboard. The fictional **Film Room** NBA league loads automatically.
 3. Enter **Find me an undervalued guard.** and click **Run scan**.
 4. The worker generates the original eight-second schematic clips on first use.
@@ -211,14 +233,18 @@ bash scripts/dev-live.sh
 ```
 
 This leaves `.env` unchanged and starts the API, worker and frontend with live
-models, fictional league data, **one candidate, no SAM retries, a six-call scan
-limit, five-second clips, 2048 output tokens per Spark call, minimal reasoning,
-and scheduling disabled**. A successful initial three-model scan needs up to six
-inference calls; this is a call limit, not a dollar estimate. Upload a permitted
-MP4/MOV and identify its target in Film library before starting a scan. Live scouting
-only considers candidates that have an existing permitted clip. An empty film
-library blocks scans before any inference; rejected film skips image generation.
-The upload form displays the active clip-duration limit.
+models and the selected league, **one candidate, up to two distinct clips, no
+same-clip SAM retries, a six-call scan limit, five-second clips, 2048 output
+tokens per Spark call, minimal reasoning, and scheduling disabled**. The call
+limit is not a dollar estimate. Connected league scans refresh roster/statistics
+and discover matching footage automatically; permitted uploads and the footage
+catalog are also supported. When identity, tracking or measurable evidence is
+unclear, the worker switches to another eligible clip if the remaining budget
+can cover it and the final report. A shared identity check lets a named-player
+two-clip scan complete within six calls. Earlier scouting/candidate calls reduce
+the remaining headroom. Duplicate footage is excluded and uncertain evidence
+never becomes an ADD. The report explains each clip check and any budget or
+availability limit. See [Automatic scanning](docs/AUTOMATIC_SCANNING.md).
 
 On November 3 all three actual clients completed requests on a user-provided
 four-second highlight excerpt. SAM returned 48 frames; Spark detected degraded
@@ -282,7 +308,7 @@ Official documentation was inspected before implementing these request contracts
 In your manually created `.env`:
 
 ```dotenv
-MODEL_API_KEY=your_actual_key_here
+MODEL_API_KEY= # fill in your existing key locally
 MOCK_MODELS=0
 DEMO_MODE=1
 MAX_CANDIDATES=1

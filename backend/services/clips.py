@@ -1,8 +1,10 @@
 import hashlib
 import json
+import math
 import subprocess
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urldefrag
 
 from sqlalchemy import select
 
@@ -14,6 +16,40 @@ from backend.services.sample import ensure_sample
 
 class ClipProvider(Protocol):
     def find(self, player_id: str) -> dict | None: ...
+
+
+def source_span(data):
+    span = data.get("source_span") or {}
+    start, end = span.get("start"), span.get("end")
+    if (
+        type(start) in (int, float)
+        and type(end) in (int, float)
+        and math.isfinite(start)
+        and math.isfinite(end)
+        and 0 <= start < end
+    ):
+        return (float(start), float(end))
+    return None
+
+
+def source_key(data):
+    ref = data.get("source_ref")
+    if not ref:
+        return None
+    ref = urldefrag(ref)[0]
+    span = source_span(data)
+    return f"{ref}|excerpt:{span[0]:g}:{span[1]:g}" if span else ref
+
+
+def overlapping_source(a, b):
+    if (
+        not a.get("source_ref")
+        or not b.get("source_ref")
+        or urldefrag(a["source_ref"])[0] != urldefrag(b["source_ref"])[0]
+    ):
+        return False
+    left, right = source_span(a), source_span(b)
+    return not left or not right or max(left[0], right[0]) < min(left[1], right[1])
 
 
 def media_url(path: Path) -> str:
@@ -144,7 +180,9 @@ class LocalClipProvider:
     def __init__(self, mock: bool, factory=None):
         self.mock, self.factory = mock, factory
 
-    def find(self, player_id: str) -> dict | None:
+    def find(
+        self, player_id: str, excluded_ids=(), excluded_hashes=(), excluded_sources=()
+    ) -> dict | None:
         with session_scope(self.factory) as s:
             clips = s.scalars(
                 select(Clip)
@@ -152,15 +190,27 @@ class LocalClipProvider:
                 .order_by(Clip.created_at.desc())
             )
             for clip in clips:
-                if usable_upload(clip.data):
+                if (
+                    clip.id not in excluded_ids
+                    and clip.content_hash not in excluded_hashes
+                    and source_key(clip.data) not in excluded_sources
+                    and clip.data.get("source_ref") not in excluded_sources
+                    and usable_upload(clip.data)
+                ):
                     return clip.data
-        if self.mock:
+        if self.mock and not excluded_ids and not excluded_hashes:
             return prepare_clip(ensure_sample(player_id), player_id, True, self.factory)
         return None
 
 
 def usable_upload(data: dict) -> bool:
     try:
+        if data.get("automatically_matched"):
+            from datetime import date, datetime, timezone
+
+            age = (datetime.now(timezone.utc).date() - date.fromisoformat(data["game_date"])).days
+            if not 0 <= age <= settings.footage_max_age_days:
+                return False
         return (
             local_path(data["url"]).is_file()
             and 0 < data["duration"] <= settings.max_clip_seconds + 0.1

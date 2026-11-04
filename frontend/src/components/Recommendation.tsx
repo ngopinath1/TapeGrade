@@ -13,7 +13,7 @@ export function Recommendation({
     if (!move) return;
     try {
       await navigator.clipboard.writeText(
-        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : scan?.result?.league_is_demo === false ? "live Sleeper league report" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\n${move.faab_bid === null ? "No FAAB bid applies" : `FAAB $${move.faab_bid}`}\n${move.reasoning}\nAwaiting your tap. Recommendation only.`,
+        `TapeGrade ${scan?.mode === "mock" ? "SIMULATED DEMO" : scan?.result?.league_is_demo === false ? "live Sleeper league report" : "live model report (sample league)"}\nADD ${move.add_player.name}\nDROP ${move.drop_player.name}\n${move.faab_bid === null ? "No FAAB bid applies" : `FAAB $${move.faab_bid}`}\n${move.reasoning}\nRecommendation only. Make any roster move in Sleeper.`,
       );
       onToast("Recommendation copied.");
     } catch {
@@ -23,7 +23,11 @@ export function Recommendation({
   return (
     <section className="recommendation" aria-labelledby="recommendation-title">
       <div className="section-heading">
-        <h2 id="recommendation-title">Scan recommendation</h2>
+        <h2 id="recommendation-title">
+          {scan?.result?.film_test
+            ? "Diagnostic result"
+            : "Scan recommendation"}
+        </h2>
         {move && <span className="recommendation-label">For your review</span>}
       </div>
       <p className="recommendation-scope">
@@ -69,9 +73,13 @@ export function Recommendation({
             </div>
           </div>
           <p className="move-reason">{move.reasoning}</p>
+          <p className="move-instruction">
+            Make this move in Sleeper after reviewing the film and current
+            player availability.
+          </p>
           <div className="recommendation-actions">
             <p className="awaiting">
-              <strong>Awaiting your tap.</strong>
+              <strong>Review before you act.</strong>
               <span>Recommendation only</span>
             </p>
             <button className="button" onClick={copy}>
@@ -83,13 +91,17 @@ export function Recommendation({
         <div className="move-empty">
           <h3>
             {scan?.result
-              ? "No recommended transaction"
+              ? scan.result.film_test
+                ? "Film review only"
+                : "No recommended transaction"
               : "No recommendation yet"}
           </h3>
           <p>
             {scan?.result?.guardrail_notice ??
               (scan?.result
-                ? "No move cleared the film evidence and your guardrails."
+                ? scan.result.film_test
+                  ? "This diagnostic checks tracking quality. It does not compare players or recommend a roster move."
+                  : "No move cleared the film evidence and your guardrails. Review the player verdicts to see what was missing."
                 : "A validated add, drop and bid will appear after your scan.")}
           </p>
         </div>

@@ -9,12 +9,14 @@ export function Candidates({
   onSelect,
   watchlist,
   onWatch,
+  emptyReason,
 }: {
   candidates: Candidate[];
   selected: string;
   onSelect: (id: string) => void;
   watchlist: string[];
   onWatch: (id: string) => void;
+  emptyReason?: string;
 }) {
   return (
     <section className="candidates-panel" aria-label="Scouted candidates">
@@ -68,7 +70,10 @@ export function Candidates({
       ) : (
         <div className="board-empty">
           <h3>No candidates in this report</h3>
-          <p>Review the scan details for any missing evidence.</p>
+          <p>
+            {emptyReason ??
+              "Try a broader request or another position. Review the scan details for any missing evidence."}
+          </p>
         </div>
       )}
       <p className="candidate-footnote">

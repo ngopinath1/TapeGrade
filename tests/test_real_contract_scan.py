@@ -34,8 +34,9 @@ from tests.test_live_staging import inputs
 
 
 @pytest.mark.parametrize("reviewed_eligibility", [True, False])
+@pytest.mark.parametrize("automatic", [True, False])
 def test_real_league_contract_all_clients_budget_and_export(
-    client, store, monkeypatch, reviewed_eligibility
+    client, store, monkeypatch, reviewed_eligibility, automatic
 ):
     connect_batch(store)
     assert get_league(store)["scouting_ready"] is False
@@ -65,6 +66,16 @@ def test_real_league_contract_all_clients_budget_and_export(
     monkeypatch.setattr(settings, "max_candidates", 1)
     monkeypatch.setattr(settings, "max_sam_retries", 1)
     monkeypatch.setattr(settings, "max_live_model_calls_per_scan", 8)
+    if automatic:
+        # Only the fixture's source adapters are replaced. The preparation,
+        # checkpoints, real model clients and final gates all run normally.
+        from backend.services import scan_workflow
+
+        monkeypatch.setattr(settings, "nba_stats_provider", "sportradar")
+        monkeypatch.setattr(settings, "sportradar_api_key", SecretStr("offline-statistics-key"))
+        monkeypatch.setattr(scan_workflow, "get_league", lambda *a: deepcopy(league))
+        monkeypatch.setattr(scan_workflow, "refresh_roster", lambda *a: None)
+        monkeypatch.setattr(scan_workflow, "statistics_fresh", lambda *a: True)
     clip = prepare_clip(ensure_sample("c1"), player["id"], False, store)
     with session_scope(store) as s:
         row = s.get(Clip, clip["id"])
@@ -153,13 +164,17 @@ def test_real_league_contract_all_clients_budget_and_export(
     monkeypatch.setattr(
         httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw)
     )
-    sid = scan.enqueue("OFFLINE synthetic one-candidate contract test", factory=store)
+    sid = scan.enqueue(
+        "OFFLINE synthetic one-candidate contract test", factory=store, prepare=automatic
+    )
     assert scan.run_once(store)
     with session_scope(store) as s:
         row = s.get(ScanRun, sid)
         assert row.stage == "COMPLETED", row.error
+        assert row.checkpoint.get("preparation_done", False) == automatic
         assert row.live_calls == 8 and row.checkpoint["live_call_limit"] == 8
         assert row.result["league_is_demo"] is False
+        assert row.result["candidates"][0]["tracking_accepted"] is True
         if reviewed_eligibility:
             assert row.result["staged_move"]["faab_bid"] is None
             assert row.result["staged_move"]["executed"] is False

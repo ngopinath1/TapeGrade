@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronDown, RefreshCw } from "lucide-react";
 import type { Bootstrap, Scan } from "../types";
 import { Candidates } from "../components/Candidates";
 import { FilmPlayer } from "../components/FilmPlayer";
@@ -7,13 +7,12 @@ import { Recommendation } from "../components/Recommendation";
 import { PerceptionLog } from "../components/PerceptionLog";
 import { TapeCard } from "../components/TapeCard";
 import { ScanReadiness } from "../components/ScanReadiness";
-import type { Page } from "../components/WorkspaceShell";
-
-const missions = [
-  { label: "Find a guard", instruction: "Find me an undervalued guard." },
-  { label: "Find a wing", instruction: "Find me an undervalued wing." },
-  { label: "Find a big", instruction: "Find me an undervalued center." },
-];
+import { ScoutingRequest } from "../components/ScoutingRequest";
+import { ScanProgress } from "../components/ScanProgress";
+import type {
+  GuideDestination,
+  SetupSection,
+} from "../components/ScoutingGuide";
 
 export function ScoutingDesk({
   data,
@@ -39,15 +38,22 @@ export function ScoutingDesk({
   onRun: () => Promise<void>;
   onRetry: () => Promise<void>;
   onWatch: (id: string) => Promise<void>;
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: GuideDestination, section?: SetupSection) => void;
   onToast: (message: string) => void;
 }) {
   const [missionOpen, setMissionOpen] = useState(!scan?.result);
   const input = useRef<HTMLInputElement>(null);
   const detail = useRef<HTMLDivElement>(null);
-  const ready = data.scan_readiness
-    ? data.scan_readiness.ready
-    : data.league.scouting_ready !== false;
+  const automatic =
+    data.workflow?.automatic === true && data.models_mode === "live";
+  const ready =
+    data.workflow && data.models_mode === "live"
+      ? data.workflow.can_start
+      : data.models_mode === "mock" && data.league.is_demo === false
+        ? false
+        : (data.scan_readiness?.ready ?? data.league.scouting_ready !== false);
+  const simulated =
+    data.models_mode === "mock" && data.league.is_demo !== false;
   const candidates = scan?.result?.candidates ?? [];
   const current =
     candidates.find((c) => c.player.id === selected) ?? candidates[0];
@@ -66,21 +72,26 @@ export function ScoutingDesk({
         : "Live model report · fictional sample league statistics";
   return (
     <>
-      <ScanReadiness
-        data={data}
-        onSetup={() =>
-          onNavigate(data.league.is_demo === false ? "data" : "library")
-        }
-      />
-      {data.league.is_demo === false && !data.scan_readiness && !ready && (
-        <div className="worker-note">
-          <strong>Finish league setup to scan.</strong>
-          <p>{data.league.scouting_unavailable_reason}</p>
-          <button className="text-link" onClick={() => onNavigate("data")}>
-            Open league setup
-          </button>
-        </div>
+      {!automatic && scan?.result && (
+        <ScanReadiness
+          data={data}
+          onSetup={() =>
+            onNavigate(data.league.is_demo === false ? "data" : "library")
+          }
+        />
       )}
+      {!automatic &&
+        data.league.is_demo === false &&
+        !data.scan_readiness &&
+        !ready && (
+          <div className="worker-note">
+            <strong>Finish league setup to scan.</strong>
+            <p>{data.league.scouting_unavailable_reason}</p>
+            <button className="text-link" onClick={() => onNavigate("data")}>
+              Open league setup
+            </button>
+          </div>
+        )}
       {scan?.result && (
         <div className="report-toolbar">
           <div>
@@ -110,130 +121,49 @@ export function ScoutingDesk({
         </div>
       )}
       {!busy && (!scan?.result || missionOpen) && (
-        <section
-          className={`mission-panel ${scan?.result ? "mission-inline" : "mission-welcome"}`}
-          aria-labelledby="mission-title"
-        >
-          <div className="mission-intro">
-            <p className="workspace-context">
-              <button onClick={() => onNavigate("roster")}>
-                {data.league.team_name}
-              </button>
-              <span>·</span>
-              {data.league.faab_remaining === null
-                ? "Waiver budget unavailable"
-                : `$${data.league.faab_remaining} remaining`}
-            </p>
-            <h2 id="mission-title">
-              {scan?.result
-                ? "A new scouting mission"
-                : "Find your next opportunity."}
-            </h2>
-            <p>
-              Describe the player your team needs. Review the film before you
-              make a move.
-            </p>
-          </div>
-          <form
-            className="scout-input"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              await onRun();
-            }}
-          >
-            <label htmlFor="instruction">Scouting mission</label>
-            <div className="mission-entry">
-              <input
-                id="instruction"
-                ref={input}
-                value={instruction}
-                onChange={(event) => onInstruction(event.target.value)}
-                placeholder="Find an undervalued guard…"
-                required
-                minLength={3}
-                maxLength={1000}
-                disabled={busy}
-              />
-              <button
-                className="button primary scan-button"
-                disabled={busy || !ready || instruction.trim().length < 3}
-              >
-                {busy && <Loader2 size={16} className="spin" />}
-                {busy ? "Scouting…" : "Run scan"}
-                {!busy && <ArrowRight size={16} />}
-              </button>
-            </div>
-          </form>
-          <div
-            className="mission-suggestions"
-            aria-label="Suggested scouting missions"
-          >
-            {missions.map((mission) => (
-              <button
-                key={mission.label}
-                disabled={busy}
-                onClick={() => {
-                  onInstruction(mission.instruction);
-                  input.current?.focus();
-                }}
-              >
-                {mission.label}
-              </button>
-            ))}
-          </div>
-          {!ready && (
-            <p className="scan-blocked">
-              {data.league.is_demo === false
-                ? "Complete league setup to enable scanning."
-                : "Add permitted footage in Film library to enable scanning."}
-            </p>
-          )}
-          {!scan?.result && (
-            <details className="scouting-help">
-              <summary>How scouting works</summary>
-              <p>
-                Your mission produces a ranked shortlist. Choose a player to
-                inspect the film, tracking quality, and measured signals. Any
-                proposed roster move is checked against your guardrails and
-                remains yours to make.
-              </p>
-            </details>
-          )}
-          {!scan?.result && <p className="mission-provenance">{provenance}</p>}
-        </section>
+        <ScoutingRequest
+          data={data}
+          hasReport={Boolean(scan?.result)}
+          busy={busy}
+          canScan={ready}
+          simulated={simulated}
+          instruction={instruction}
+          setInstruction={onInstruction}
+          inputRef={input}
+          onRun={onRun}
+          onNavigate={onNavigate}
+        />
       )}
-      {busy && (
-        <section className="scan-loading" aria-label="Scan progress">
-          <div className="progress-heading">
-            <Loader2 size={18} className="spin" />
-            <h2>Reviewing the evidence</h2>
-            <span role="status">
-              {scan?.stage.replaceAll("_", " ").toLowerCase() ?? "Queuing"} ·{" "}
-              {scan?.progress ?? 0}%
-            </span>
-          </div>
-          <div
-            className="scan-progress"
-            role="progressbar"
-            aria-label="Scouting progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={scan?.progress ?? 0}
-          >
-            <i style={{ width: `${Math.max(2, scan?.progress ?? 0)}%` }} />
-          </div>
-          <p>You can keep using the workspace while this scan runs.</p>
-        </section>
-      )}
+      {busy && <ScanProgress scan={scan} />}
       {scan?.stage === "FAILED" && (
         <div className="error-banner" role="alert">
-          <span>
-            {scan.error ??
-              "This scan could not finish. Check the connection and retry."}
-          </span>
+          <div>
+            <p>
+              {scan.error ??
+                "This scan could not finish. Check the connection and retry."}
+            </p>
+            <p>
+              Saved work is retained. Retrying a live scan may use additional
+              API credits within its call limit.
+            </p>
+          </div>
           <button className="button" onClick={() => void onRetry()}>
             <RefreshCw size={15} /> Retry scan
           </button>
+          {scan.action_needed && (
+            <button
+              className="button"
+              onClick={() =>
+                onNavigate(
+                  scan.action_needed!.destination,
+                  scan.action_needed!.section,
+                )
+              }
+            >
+              {scan.action_needed.label}
+              <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       )}
       {scan?.result?.film_test && (
@@ -246,6 +176,7 @@ export function ScoutingDesk({
       {scan?.result && (
         <div className="report-workspace">
           <Candidates
+            emptyReason={scan.result.shortlist.reasoning}
             candidates={candidates}
             selected={current?.player.id ?? ""}
             onSelect={onSelect}
@@ -259,7 +190,46 @@ export function ScoutingDesk({
             aria-label="Selected player report"
             tabIndex={0}
           >
-            <FilmPlayer candidate={current} />
+            {current && !current.clip ? (
+              <section className="footage-evidence">
+                <h2>No footage analyzed for {current.player.name}</h2>
+                <p>
+                  {current.footage_notice ??
+                    "No permitted clip was available. Film measurements and film-backed add recommendations are withheld."}
+                </p>
+                {Boolean(current.footage_sources?.length) && (
+                  <>
+                    <h3>Footage found on the publisher’s site</h3>
+                    <p>
+                      Viewing links only. These clips were not downloaded or
+                      analyzed.
+                    </p>
+                    <ul>
+                      {current.footage_sources!.map((source) => (
+                        <li key={source.url}>
+                          <a href={source.url} target="_blank" rel="noreferrer">
+                            {source.title}
+                            <ArrowUpRight size={13} />
+                          </a>
+                          <small>
+                            {source.publisher} · {source.game_date}
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <button
+                  className="button"
+                  onClick={() => onNavigate("library")}
+                >
+                  Add permitted footage
+                  <ArrowRight size={14} />
+                </button>
+              </section>
+            ) : current ? (
+              <FilmPlayer candidate={current} />
+            ) : null}
             <Recommendation scan={scan} onToast={onToast} />
             <details className="audit-disclosure">
               <summary>

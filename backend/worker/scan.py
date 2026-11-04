@@ -15,10 +15,9 @@ from uuid import uuid4
 
 from sqlalchemy import select, update
 
-from backend.agents.critic import PerceptionCritic
 from backend.agents.decision import DecisionAgent
 from backend.agents.scout import ScoutAgent
-from backend.api.types import ClipVerification, Criticism, Tracking, Decision
+from backend.api.types import Decision
 from backend.config import settings
 from backend.db.database import Session, initialize, session_scope
 from backend.db.schema import (
@@ -26,27 +25,23 @@ from backend.db.schema import (
     JobEvent,
     ModelCache,
     ModelCall,
-    PerceptionLog,
     ScanRun,
-    SegmentationResult,
     StagedMove,
     Verdict,
     now,
 )
 from backend.models.base import ModelError
 from backend.models.mock import MockSAM, MockSpark
-from backend.services.clips import LocalClipProvider
-from backend.services.metrics import calculate_metrics
-from backend.services.overlays import create_overlays
 from backend.services.state import get_guardrails, get_league, seed_demo
 from backend.services.scan_readiness import scan_readiness
+from backend.services.scan_workflow import PreparationPending
 from backend.services.tape_card import render_card
 
 log = logging.getLogger("tapegrade.worker")
 TERMINAL = ("COMPLETED", "FAILED")
 
 
-def enqueue(instruction, source="manual", request_key=None, factory=None):
+def enqueue(instruction, source="manual", request_key=None, factory=None, prepare=False):
     with session_scope(factory) as s:
         league = get_league(factory)
         if request_key:
@@ -57,9 +52,18 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
                         "Idempotency key belongs to a different league. Use a new key."
                     )
                 return existing.id
-        readiness, available = scan_readiness(
-            league, get_guardrails(factory, league["id"]), factory
-        )
+        automatic = prepare and not league.get("is_demo", True)
+        if automatic:
+            from backend.services.scan_workflow import workflow_status
+
+            workflow = workflow_status(league)
+            readiness, available = {"blockers": workflow["blockers"], "notice": None}, league[
+                "available"
+            ]
+        else:
+            readiness, available = scan_readiness(
+                league, get_guardrails(factory, league["id"]), factory
+            )
         if readiness["blockers"]:
             raise ModelError(" ".join(readiness["blockers"]))
         league = {**league, "available": available, "scan_readiness": readiness}
@@ -82,8 +86,10 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
                 "league": league,
                 "candidates": [],
                 "max_candidates": settings.max_candidates,
+                "max_clips_per_candidate": settings.max_clips_per_candidate,
                 "max_sam_retries": settings.max_sam_retries,
                 "live_call_limit": settings.max_live_model_calls_per_scan,
+                "automatic_preparation": automatic,
             },
         )
         s.add(run)
@@ -99,10 +105,14 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
         return run.id
 
 
-def claim(factory=None):
+def claim(factory=None, scan_id=None):
     token = uuid4().hex
     with session_scope(factory) as s:
-        eligible = (ScanRun.stage.notin_(TERMINAL), ScanRun.lease_until < time.time())
+        eligible = (
+            ScanRun.stage.notin_(TERMINAL),
+            ScanRun.lease_until < time.time(),
+            *([ScanRun.id == scan_id] if scan_id else []),
+        )
         run = s.scalar(select(ScanRun).where(*eligible).order_by(ScanRun.created_at).limit(1))
         if not run:
             return None
@@ -153,6 +163,19 @@ class Job:
         self.heartbeat()
         with session_scope(self.factory) as s:
             s.get(ScanRun, self.id).checkpoint = json.loads(json.dumps(self.cp))
+
+    def remaining_calls(self):
+        if self.mode == "mock":
+            return 1000000
+        with session_scope(self.factory) as s:
+            run = s.get(ScanRun, self.id)
+            limit = min(
+                settings.max_live_model_calls_per_scan,
+                self.cp.get("live_call_limit", settings.max_live_model_calls_per_scan),
+            )
+            if self.cp.get("film_test"):
+                limit = min(limit, self.cp.get("film_call_limit", 4))
+            return max(0, limit - run.live_calls)
 
     def reserve_call(self, model, operation):
         self.heartbeat()
@@ -267,6 +290,10 @@ def process(scan_id, token, factory=None):
 
             process_film(job)
             return
+        if job.cp.get("automatic_preparation"):
+            from backend.services.scan_workflow import prepare_live_scan
+
+            prepare_live_scan(job)
         if mock:
             raw_spark, sam, image = MockSpark(), MockSAM(), None
         else:
@@ -276,13 +303,26 @@ def process(scan_id, token, factory=None):
 
             raw_spark, sam, image = MuseSpark(), SAMClient(), MuseImage(job)
         spark = CachedSpark(job, raw_spark)
+        from backend.providers.footage import (
+            AutomaticClipProvider,
+            ESPNFootageDiscovery,
+        )
+
+        automatic_clips = (
+            AutomaticClipProvider(factory) if job.cp.get("automatic_preparation") else None
+        )
+        discovery = (
+            ESPNFootageDiscovery(force_refresh=bool(job.cp.get("force_footage_discovery")))
+            if automatic_clips and settings.footage_discovery_enabled
+            else None
+        )
         league = job.cp["league"]
         if "shortlist" not in job.cp:
             job.event(
                 "SCOUTING",
-                "Muse Spark",
-                "Evaluating roster needs, position fit and opportunity signals.",
-                5,
+                "TapeGrade",
+                "Selecting players for inspection; the final roster decision comes after the evidence checks.",
+                10 if job.cp.get("automatic_preparation") else 5,
             )
             job.cp["shortlist"] = (
                 ScoutAgent(spark)
@@ -297,186 +337,11 @@ def process(scan_id, token, factory=None):
                 continue
             player = next(p for p in league["available"] if p["id"] == pid)
             progress = 12 + int(index / max(1, len(shortlist)) * 60)
-            job.event(
-                "FINDING_CLIPS",
-                "TapeGrade",
-                f"Selecting permitted local footage for {player['name']}.",
-                progress,
-            )
-            clip = LocalClipProvider(mock, factory).find(pid)
-            candidate = {
-                "player": player,
-                "clip": clip,
-                "verified": False,
-                "quality": 0,
-                "tracking": None,
-                "metrics": [],
-                "critiques": [],
-                "overlays": [],
-            }
-            if not clip:
-                job.event(
-                    "FINDING_CLIPS",
-                    "TapeGrade",
-                    "No permitted clip available; film metrics will be unavailable.",
-                )
-            else:
-                job.event(
-                    "VERIFYING",
-                    "Muse Spark",
-                    f"Checking whether the selected clip features {player['name']}.",
-                )
-                verification = spark.reason(
-                    "verify",
-                    {
-                        "player": player,
-                        "clip": clip,
-                        "instruction": "Verify identity only from visible jersey/name/number and supplied context. Reject if identity is uncertain. Return frame-0 seed boxes in source pixels: target id 1, visible opposing defenders id 2+, ball id 15. Never invent unseen objects.",
-                    },
-                    ClipVerification,
-                    [f["url"] for f in clip["frames"]],
-                )
-                candidate["verification"] = verification.model_dump()
-                candidate["verified"] = verification.verified and verification.confidence >= 0.75
-                if not candidate["verified"]:
-                    job.event("VERIFYING", "Muse Spark", f"Clip rejected: {verification.reason}")
-                else:
-                    prompt = verification.target_description
-                    objects = [o.model_dump() for o in verification.objects]
-                    if not mock and not any(o["role"] == "target" for o in objects):
-                        raise ModelError(
-                            "Verified clip has no target seed box. Add clearer footage."
-                        )
-                    if not mock:
-                        from backend.models.sam import seed_prompt
+            from backend.worker.clip_scan import scan_player
 
-                        prompt = seed_prompt(clip, objects)
-                    for attempt in range(job.cp["max_sam_retries"] + 1):
-                        job.event(
-                            "TRACKING",
-                            "SAM 3.1",
-                            f"{'Retrying tracking' if attempt else 'Tracking clip'} · {player['name']} · attempt {attempt+1}.",
-                            detail={"prompt": prompt, "attempt": attempt, "simulated": mock},
-                        )
-                        track_payload = {
-                            "clip_hash": clip["content_hash"],
-                            "prompt": prompt,
-                            "objects": objects,
-                            "mask_encoding": "one_bit",
-                        }
-                        track_data = job.cached(
-                            settings.sam_model,
-                            "tracking",
-                            track_payload,
-                            lambda: sam.track(clip, prompt, objects).model_dump(),
-                        )
-                        tracking = Tracking.model_validate(track_data)
-                        seg_key = sha256(
-                            json.dumps(
-                                {"mode": job.mode, "model": settings.sam_model, **track_payload},
-                                sort_keys=True,
-                            ).encode()
-                        ).hexdigest()
-                        with session_scope(factory) as s:
-                            if not s.scalar(
-                                select(SegmentationResult).where(
-                                    SegmentationResult.cache_key == seg_key
-                                )
-                            ):
-                                s.add(
-                                    SegmentationResult(
-                                        cache_key=seg_key,
-                                        clip_id=clip["id"],
-                                        model=settings.sam_model,
-                                        mode=job.mode,
-                                        data=track_data,
-                                    )
-                                )
-                        overlays = create_overlays(clip, tracking, seg_key)
-                        job.event(
-                            "CRITIQUING",
-                            "Muse Spark",
-                            "Inspecting source frames and tracking overlays for identity swaps and mask errors.",
-                        )
-                        # Raw frames plus overlays allow the critic to compare evidence directly.
-                        critique = PerceptionCritic(spark).inspect(
-                            pid,
-                            attempt,
-                            tracking,
-                            [f["url"] for f in clip["frames"]] + overlays,
-                            objects,
-                        )
-                        candidate["critiques"].append(
-                            {"attempt": attempt, "prompt": prompt, **critique.model_dump()}
-                        )
-                        with session_scope(factory) as s:
-                            row = s.scalar(
-                                select(PerceptionLog).where(
-                                    PerceptionLog.scan_id == scan_id,
-                                    PerceptionLog.player_id == pid,
-                                    PerceptionLog.attempt == attempt,
-                                )
-                            )
-                            if row:
-                                row.data = candidate["critiques"][-1]
-                            else:
-                                s.add(
-                                    PerceptionLog(
-                                        scan_id=scan_id,
-                                        player_id=pid,
-                                        attempt=attempt,
-                                        data=candidate["critiques"][-1],
-                                    )
-                                )
-                        candidate.update(
-                            quality=min(critique.quality_score, verification.confidence),
-                            tracking=track_data,
-                            overlays=overlays,
-                        )
-                        retry = (
-                            critique.quality_score < settings.perception_quality_threshold
-                            and critique.retry_justified
-                            and attempt < job.cp["max_sam_retries"]
-                        )
-                        if mock:
-                            next_prompt = critique.refined_prompt.strip()
-                        else:
-                            from backend.models.sam import corrected_prompt
-
-                            next_prompt = (
-                                corrected_prompt(clip, objects, critique) if retry else None
-                            )
-                        changed = bool(next_prompt) and next_prompt != prompt
-                        if retry and changed:
-                            job.event(
-                                "CRITIQUING",
-                                "Muse Spark",
-                                f"Tracking quality insufficient ({critique.quality_score:.0%}). {critique.explanation}",
-                                detail=critique.model_dump(),
-                            )
-                            prompt = next_prompt
-                            continue
-                        accepted = critique.quality_score >= settings.perception_quality_threshold
-                        job.event(
-                            "CRITIQUING",
-                            "Muse Spark",
-                            f"{'Updated tracking accepted' if attempt and accepted else 'Tracking accepted' if accepted else 'Tracking remains unreliable; recommendation confidence reduced'} ({critique.quality_score:.0%}).",
-                            detail=critique.model_dump(),
-                        )
-                        break
-            job.event(
-                "CALCULATING_METRICS",
-                "TapeGrade",
-                f"Calculating evidence-backed proxies for {player['name']}.",
+            candidate = scan_player(
+                job, spark, sam, player, mock, automatic_clips, discovery, progress
             )
-            tracking = (
-                Tracking.model_validate(candidate["tracking"])
-                if candidate["tracking"]
-                else Tracking(width=1, height=1, fps=1, prompt="", frames=[], simulated=mock)
-            )
-            candidate["metrics"] = [
-                m.model_dump() for m in calculate_metrics(tracking, candidate["quality"])
-            ]
             with session_scope(factory) as s:
                 for m in candidate["metrics"]:
                     row = s.scalar(
@@ -494,6 +359,15 @@ def process(scan_id, token, factory=None):
                         )
             job.cp["candidates"].append(candidate)
             job.save()
+        from backend.services.observed_players import (
+            add_observed_candidates,
+            apply_profile_verdicts,
+        )
+
+        job.cp["candidates"] = add_observed_candidates(
+            job.cp["candidates"], league, get_guardrails(factory, job.league_id)
+        )
+        job.save()
         job.event(
             "DECIDING",
             "Muse Spark",
@@ -501,29 +375,36 @@ def process(scan_id, token, factory=None):
             80,
         )
         candidates = job.cp["candidates"]
-        decision, staged = (
-            DecisionAgent(spark).decide(
-                job.instruction, league, candidates, get_guardrails(factory, job.league_id)
+        if "decision" in job.cp:
+            from backend.services.staging import validate_decision
+
+            decision, staged = validate_decision(
+                Decision.model_validate(job.cp["decision"]),
+                candidates,
+                league["roster"],
+                get_guardrails(factory, job.league_id),
+                league["faab_remaining"],
+                league=league,
             )
-            if candidates
-            else (Decision(verdicts=[], move=None), None)
-        )
+        else:
+            decision_agent = DecisionAgent(spark)
+            decision, staged = (
+                decision_agent.decide(
+                    job.instruction, league, candidates, get_guardrails(factory, job.league_id)
+                )
+                if candidates
+                else (Decision(verdicts=[], move=None), None)
+            )
+            job.cp["decision_warnings"] = decision_agent.validation_warnings
+            job.cp["decision"] = decision.model_dump()
+            job.save()
         for c in candidates:
             c["verdict"] = next(
                 v.model_dump() for v in decision.verdicts if v.player_id == c["player"]["id"]
             )
+        apply_profile_verdicts(candidates)
         job.cp["candidates"] = candidates
         job.save()
-        job.event(
-            "GENERATING_CARD",
-            "Muse Image" if not mock else "TapeGrade",
-            (
-                "Generating scouting artwork and compositing verified typography."
-                if not mock
-                else "Rendering a clearly labeled mock Tape Card."
-            ),
-            92,
-        )
         card, card_error = None, None
         if candidates:
             best = next(
@@ -534,15 +415,11 @@ def process(scan_id, token, factory=None):
                     default=candidates[0],
                 ),
             )
-            try:
-                card = render_card(
-                    best["player"],
-                    best["verdict"],
-                    best["metrics"],
-                    best["clip"] if best["verified"] else None,
-                    mock,
-                    image,
-                    allow_artwork=mock
+            allow_artwork = (
+                not job.cp.get("skip_paid_artwork")
+                and job.remaining_calls() >= 1
+                and (
+                    mock
                     or (
                         best["verified"]
                         and best["quality"] >= settings.perception_quality_threshold
@@ -552,7 +429,28 @@ def process(scan_id, token, factory=None):
                         and any(
                             m["value"] is not None and m["evidence_frames"] for m in best["metrics"]
                         )
-                    ),
+                    )
+                )
+            )
+            job.event(
+                "GENERATING_CARD",
+                "Muse Image" if not mock and allow_artwork else "TapeGrade",
+                (
+                    "Generating scouting artwork and compositing verified typography."
+                    if not mock and allow_artwork
+                    else "Rendering the evidence report card."
+                ),
+                92,
+            )
+            try:
+                card = render_card(
+                    best["player"],
+                    best["verdict"],
+                    best["metrics"],
+                    best["clip"] if best["verified"] else None,
+                    mock,
+                    image,
+                    allow_artwork=allow_artwork,
                 )
                 card["player_id"] = best["player"]["id"]
             except ModelError as e:
@@ -580,6 +478,7 @@ def process(scan_id, token, factory=None):
             c["verdict"] = next(
                 v.model_dump() for v in decision.verdicts if v.player_id == c["player"]["id"]
             )
+        apply_profile_verdicts(candidates)
         if card and before_verdicts != [v.model_dump() for v in decision.verdicts]:
             # Updated labels require no further paid artwork request.
             card = render_card(
@@ -603,6 +502,22 @@ def process(scan_id, token, factory=None):
             "league_is_demo": league.get("is_demo", True),
             "statistics_source": league.get("stats_summary"),
             "scan_notice": league.get("scan_readiness", {}).get("notice"),
+            "data_refresh": job.cp.get("data_refresh"),
+            "footage_discovery": job.cp.get("footage_discovery", {}),
+            "decision_warnings": job.cp.get("decision_warnings", []),
+            "guardrail_notice": (
+                "The model’s evidence references did not match the verified film measurements. That interpretation was withheld; no roster move is recommended."
+                if job.cp.get("decision_warnings")
+                else (
+                    "No roster move is supported without verified film. Review the player report and footage sources below."
+                    if not staged and candidates and not any(c["verified"] for c in candidates)
+                    else (
+                        "No move cleared the evidence, current player availability and your saved limits."
+                        if not staged
+                        else None
+                    )
+                )
+            ),
         }
         job.heartbeat()
         with session_scope(factory) as s:
@@ -639,6 +554,11 @@ def process(scan_id, token, factory=None):
         from backend.services.notifications import notify
 
         notify(scan_id, result)
+    except PreparationPending:
+        with session_scope(factory) as s:
+            run = s.get(ScanRun, scan_id)
+            if run.worker_token == token:
+                run.lease_until = time.time() + 2
     except Exception as e:
         # Never send raw HTTP exceptions (which can carry credential-bearing bodies) to the UI.
         message = (
@@ -652,6 +572,9 @@ def process(scan_id, token, factory=None):
             if run.worker_token == token:
                 run.stage, run.error, run.lease_until, run.updated_at = "FAILED", message, 0, now()
                 s.add(JobEvent(scan_id=scan_id, stage="FAILED", actor="TapeGrade", message=message))
+    finally:
+        if "discovery" in locals() and discovery:
+            discovery.close()
 
 
 def run_once(factory=None):
@@ -668,10 +591,18 @@ def run_once(factory=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
+    parser.add_argument(
+        "--scan-id", help="Process only this scan, without draining unrelated jobs."
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     initialize()
     seed_demo()
+    if args.scan_id:
+        claimed = claim(scan_id=args.scan_id)
+        if claimed:
+            process(*claimed)
+        return
     if args.once:
         run_once()
         return

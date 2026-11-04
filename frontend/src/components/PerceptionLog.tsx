@@ -10,7 +10,7 @@ export function PerceptionLog({
   selected?: Candidate;
 }) {
   const events = (scan?.events ?? []).filter((e) =>
-    ["TRACKING", "CRITIQUING", "FAILED"].includes(e.stage),
+    ["TRACKING", "CRITIQUING", "SWITCHING_CLIPS", "FAILED"].includes(e.stage),
   );
   return (
     <section className="panel perception-panel">
@@ -83,8 +83,10 @@ export function PerceptionLog({
           {selected.critiques.map((critique) => (
             <p key={critique.attempt}>
               <b>
-                Attempt {critique.attempt + 1} ·{" "}
-                {percent(critique.quality_score)}:
+                {critique.clip_attempt
+                  ? `Clip ${critique.clip_attempt} · Pass ${critique.tracking_attempt ?? 1}`
+                  : `Attempt ${critique.attempt + 1}`}{" "}
+                · {percent(critique.quality_score)}:
               </b>{" "}
               {critique.explanation}{" "}
               {critique.retry_justified

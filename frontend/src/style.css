@@ -2548,3 +2548,433 @@ tbody tr:hover {
   background: var(--success-soft);
   font-size: 0.8125rem;
 }
+
+/* Workflow and identity evidence use the workspace's adaptive design tokens. */
+.scouting-guide > h2 {
+  margin: 0 0 8px;
+}
+.scouting-guide > p,
+.guide-note,
+.readiness-details {
+  color: var(--muted);
+}
+.guide-note,
+.readiness-details {
+  font-size: 0.8125rem;
+  margin-top: 12px;
+}
+.readiness-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 16px;
+}
+.readiness-steps button {
+  display: flex;
+  flex: 1 1 160px;
+  align-items: center;
+  text-align: left;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.readiness-steps button:hover {
+  background: var(--hover);
+}
+.readiness-steps small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.readiness-steps button > svg:last-child {
+  margin-left: auto;
+}
+.workflow-blockers {
+  color: var(--warning);
+  padding-left: 20px;
+}
+.mission-suggestions button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--selection);
+}
+.scan-status {
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.scan-status-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scan-status-heading h2 {
+  font-size: 1rem;
+}
+.scan-status-heading p {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.scan-status-heading > strong {
+  margin-left: auto;
+}
+.scan-status .scan-progress {
+  margin-block: 16px;
+}
+.scan-phases {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+}
+.scan-phases li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.scan-phases li[aria-current] {
+  color: var(--accent);
+}
+.scan-phases li > span {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+.move-instruction {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.film-provenance,
+.identity-proof,
+.clip-attempts,
+.observed-players {
+  overflow-wrap: anywhere;
+}
+.clip-info .text-link {
+  grid-column: 1 / -1;
+}
+.footage-evidence {
+  padding: 1.5rem;
+}
+.footage-evidence h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.footage-evidence h3 {
+  margin-top: 1.375rem;
+  margin-bottom: 8px;
+}
+.footage-evidence p {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.footage-evidence ul {
+  padding-left: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.footage-evidence li {
+  padding-block: 8px;
+}
+.footage-evidence a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--accent);
+}
+.footage-evidence small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.film-provenance {
+  padding: 0 1.25rem 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.film-provenance a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.manual-upload.optional {
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--line);
+}
+.manual-upload > summary {
+  cursor: pointer;
+  padding: 1.125rem 0;
+  font-size: 0.875rem;
+}
+.manual-upload:not(.optional) > summary {
+  display: none;
+}
+.clip-grid .text-link {
+  margin-top: 0.625rem;
+  font-size: 0.75rem;
+}
+.identity-proof {
+  padding: 1.375rem 1.25rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface-secondary);
+}
+.identity-proof-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.identity-proof h3 {
+  font-size: 1.0625rem;
+  margin-bottom: 7px;
+}
+.identity-proof p,
+.identity-proof li {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.identity-proof .text-link {
+  display: inline-flex;
+  margin-top: 0.875rem;
+  font-size: 0.8125rem;
+}
+.identity-reasons {
+  padding-left: 1.25rem;
+  margin: 0.75rem 0;
+}
+.identity-anchors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.identity-anchors figure {
+  width: 9.375rem;
+  margin: 0;
+}
+.identity-anchors img {
+  width: 100%;
+  height: 11.875rem;
+  object-fit: contain;
+  background: var(--video);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.identity-anchors figcaption {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+}
+.identity-anchors small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.identity-bindings {
+  margin-top: 1.125rem;
+  font-size: 0.8125rem;
+}
+.identity-bindings summary {
+  cursor: pointer;
+  padding-block: 0.625rem;
+}
+.identity-bindings ul {
+  padding-left: 1.125rem;
+}
+.identity-bindings small {
+  margin-left: 0.625rem;
+}
+@media (max-width: 37.5rem) {
+  .identity-proof-heading {
+    flex-direction: column;
+  }
+  .identity-anchors {
+    gap: 0.75rem;
+  }
+  .identity-anchors figure {
+    width: calc(50% - 6px);
+  }
+}
+.observed-players {
+  padding: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.observed-heading,
+.observed-player-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+.observed-heading h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+.observed-heading > span,
+.observed-card small,
+.observed-source {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.observed-players > p {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+.observed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+  gap: 0.875rem;
+  margin-top: 1.125rem;
+}
+.observed-card {
+  padding: 1.125rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  min-width: 0;
+}
+.observed-player-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.observed-player-heading h4 {
+  margin: 0 0 5px;
+  font-size: 0.9375rem;
+}
+.observed-player-heading p,
+.observed-availability {
+  margin: 5px 0;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.observed-statline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 1.125rem 0;
+}
+.observed-statline strong {
+  display: block;
+  font-size: 1.4375rem;
+  font-weight: 550;
+}
+.observed-statline span {
+  display: block;
+  font-size: 0.625rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.observed-boxline {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  margin: 0.875rem 0;
+  gap: 8px;
+}
+.observed-boxline dt {
+  color: var(--muted);
+  font-size: 0.625rem;
+}
+.observed-boxline dd {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+}
+.observed-film-state {
+  font-size: 0.6875rem;
+  color: var(--accent);
+  margin-top: 1.125rem;
+}
+.observed-rationale {
+  font-size: 0.75rem;
+  line-height: 1.75;
+}
+.observed-issues {
+  font-size: 0.6875rem;
+  line-height: 1.65;
+  padding-left: 1rem;
+}
+.observed-table-wrap {
+  overflow-x: auto;
+}
+.observed-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.625rem;
+  white-space: nowrap;
+  margin-top: 0.875rem;
+}
+.observed-table-wrap caption {
+  text-align: left;
+  color: var(--muted);
+  padding-bottom: 8px;
+}
+.observed-table-wrap th,
+.observed-table-wrap td {
+  text-align: right;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.observed-table-wrap th:first-child,
+.observed-table-wrap td:first-child {
+  text-align: left;
+}
+.clip-attempts {
+  padding: 1.125rem 1.5rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-secondary);
+}
+.clip-attempts-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+.clip-attempts p {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0.625rem 0;
+}
+.clip-attempts summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  margin-top: 0.75rem;
+}
+.clip-attempts ol {
+  list-style: none;
+  margin: 0.875rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.clip-attempts li {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.clip-attempts li > div {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.6875rem;
+}
+.clip-attempts li a {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 0.6875rem;
+  margin-top: 0.625rem;
+}

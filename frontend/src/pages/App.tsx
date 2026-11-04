@@ -8,6 +8,10 @@ import { ScanHistory } from "./ScanHistory";
 import { DataSetup } from "./DataSetup";
 import { Settings } from "./Settings";
 import { Library } from "./Library";
+import type {
+  GuideDestination,
+  SetupSection,
+} from "../components/ScoutingGuide";
 import { useDashboard } from "../hooks/useDashboard";
 import { api, complete } from "../lib/api";
 
@@ -26,8 +30,9 @@ export default function App() {
   } = useDashboard();
   const [page, setPage] = useState<Page>("desk");
   const [instruction, setInstruction] = useState(
-    "Find me an undervalued guard.",
+    "Find the best available upgrade for my roster.",
   );
+  const [setupSection, setSetupSection] = useState<SetupSection>("statistics");
   const [selected, setSelected] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [toast, setToast] = useState("");
@@ -39,6 +44,13 @@ export default function App() {
     setPage(next);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+  };
+  const navigate = (destination: GuideDestination, section?: SetupSection) => {
+    if (destination === "connect") setConnecting(true);
+    else {
+      if (section) setSetupSection(section);
+      goTo(destination);
+    }
   };
   if (!data)
     return (
@@ -96,7 +108,7 @@ export default function App() {
             onInstruction={setInstruction}
             selected={selected}
             onSelect={setSelected}
-            onNavigate={goTo}
+            onNavigate={navigate}
             onToast={setToast}
             onRun={async () => {
               setSubmitting(true);
@@ -138,6 +150,8 @@ export default function App() {
         {page === "data" && data.league.is_demo === false && (
           <DataSetup
             key={data.league.id}
+            initialSection={setupSection}
+            onDone={() => goTo("desk")}
             data={data}
             onRefresh={refresh}
             onError={setError}
@@ -171,6 +185,7 @@ export default function App() {
             onError={setError}
             onToast={setToast}
             onRefresh={refresh}
+            onDone={() => goTo("desk")}
           />
         )}
         {page === "history" && (
