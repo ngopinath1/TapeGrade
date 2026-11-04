@@ -31,7 +31,8 @@ export function Library({
       </div>
       <h2>Bring your own evidence.</h2>
       <p className="muted">
-        MP4 or MOV · up to 100 MB · first 30 seconds · normalized to 12 fps.
+        MP4 or MOV · up to 100 MB · first {data.limits.clip_seconds ?? 30}{" "}
+        seconds · normalized to 12 fps.
       </p>
       <form
         className="upload-form"
@@ -92,7 +93,8 @@ export function Library({
           <div key={c.id}>
             <video src={c.url} controls preload="metadata" />
             <p>
-              {data.league.available.find((p) => p.id === c.player_id)?.name ??
+              {c.subject_name ??
+                data.league.available.find((p) => p.id === c.player_id)?.name ??
                 c.player_id}{" "}
               <span>{c.duration.toFixed(1)}s</span>
             </p>

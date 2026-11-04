@@ -54,14 +54,23 @@ export function Candidates({
               <p className="candidate-rationale">{c.verdict.rationale}</p>
               <div className="candidate-bottom">
                 <span>
-                  <b>{c.player.fantasy_points}</b> FPTS <i>·</i>{" "}
-                  <b className="positive">
-                    {c.player.minutes - c.player.previous_minutes >= 0
-                      ? "+"
-                      : ""}
-                    {c.player.minutes - c.player.previous_minutes}
-                  </b>{" "}
-                  MIN
+                  {c.player.film_only ? (
+                    "Film test · stats unavailable"
+                  ) : (
+                    <>
+                      <b>{c.player.fantasy_points}</b> FPTS <i>·</i>{" "}
+                      <b className="positive">
+                        {(c.player.minutes ?? 0) -
+                          (c.player.previous_minutes ?? 0) >=
+                        0
+                          ? "+"
+                          : ""}
+                        {(c.player.minutes ?? 0) -
+                          (c.player.previous_minutes ?? 0)}
+                      </b>{" "}
+                      MIN
+                    </>
+                  )}
                 </span>
                 <span className="confidence">
                   <i

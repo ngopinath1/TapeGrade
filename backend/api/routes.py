@@ -21,6 +21,7 @@ from backend.db.schema import (
 from backend.services.clips import inspect_video, local_path, prepare_clip
 from backend.services.state import get_guardrails, get_league
 from backend.worker.scan import enqueue
+from backend.models.base import ModelError
 from backend.providers.sleeper import ProviderError, SleeperLeagueProvider
 from pydantic import BaseModel, Field
 
@@ -65,6 +66,7 @@ def bootstrap():
             "candidates": settings.max_candidates,
             "retries": settings.max_sam_retries,
             "live_calls": settings.max_live_model_calls_per_scan,
+            "clip_seconds": settings.max_clip_seconds,
         },
     }
 
@@ -154,7 +156,10 @@ def create_scan(value: ScanRequest, idempotency_key: str | None = Header(None)):
         active = s.scalar(select(ScanRun).where(ScanRun.stage.notin_(("COMPLETED", "FAILED"))))
         if active:
             return {"id": active.id, "existing": True}
-    return {"id": enqueue(value.instruction, request_key=idempotency_key)}
+    try:
+        return {"id": enqueue(value.instruction, request_key=idempotency_key)}
+    except ModelError as e:
+        raise HTTPException(409, str(e))
 
 
 @router.get("/scans/{scan_id}")
@@ -195,6 +200,14 @@ def retry_scan(scan_id: str):
             )
         if row.mode != ("mock" if settings.mock_models else "live"):
             raise HTTPException(409, "Restore the original model mode or start a new scan.")
+        if row.checkpoint.get("film_test"):
+            from backend.worker.film import retry_film
+
+            try:
+                retry_film(scan_id)
+            except ModelError as e:
+                raise HTTPException(409, str(e))
+            return {"id": row.id}
         row.stage, row.error, row.lease_until = "QUEUED", None, 0
         return {"id": row.id}
 

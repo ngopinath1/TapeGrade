@@ -3,13 +3,14 @@ export type Player = {
   name: string;
   team: string;
   positions: string[];
-  minutes: number;
-  previous_minutes: number;
-  fantasy_points: number;
+  minutes: number | null;
+  previous_minutes: number | null;
+  fantasy_points: number | null;
   trend: number[];
-  number: number;
+  number: number | null;
   source: string;
   is_demo: boolean;
+  film_only?: boolean;
   stats: Record<string, number>;
 };
 export type Guardrails = {
@@ -38,7 +39,12 @@ export type Bootstrap = {
   demo_mode: boolean;
   scheduler_available: boolean;
   credentials_configured: boolean;
-  limits: { candidates: number; retries: number; live_calls: number };
+  limits: {
+    candidates: number;
+    retries: number;
+    live_calls: number;
+    clip_seconds?: number;
+  };
 };
 export type Metric = {
   name: string;
@@ -67,6 +73,7 @@ export type Tracking = {
   frames: { frame: number; time: number; objects: TrackedObject[] }[];
 };
 export type Clip = {
+  subject_name?: string;
   id: string;
   player_id: string;
   url: string;
@@ -136,6 +143,7 @@ export type Scan = {
   live_calls: number;
   events?: ScanEvent[];
   result: {
+    film_test?: boolean;
     candidates: Candidate[];
     staged_move: Move | null;
     card: {

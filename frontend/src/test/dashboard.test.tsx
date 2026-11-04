@@ -82,6 +82,46 @@ describe("scouting dashboard", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/Jordan Sterling/)).toBeChecked();
   });
+  it("keeps real film diagnostics separate from fictional statistics and moves", async () => {
+    const diagnostic = structuredClone(scan);
+    diagnostic.mode = "live";
+    diagnostic.result!.film_test = true;
+    diagnostic.result!.simulated = false;
+    diagnostic.result!.staged_move = null;
+    diagnostic.result!.card = null;
+    const subject = diagnostic.result!.candidates[0].player;
+    subject.name = "Visible ball handler";
+    subject.film_only = true;
+    subject.is_demo = false;
+    subject.number = null;
+    subject.minutes = subject.previous_minutes = subject.fantasy_points = null;
+    subject.stats = {};
+    diagnostic.result!.candidates = [diagnostic.result!.candidates[0]];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => ({
+        ok: true,
+        json: async () =>
+          url === "/api/bootstrap"
+            ? { ...fixture.bootstrap, models_mode: "live" }
+            : url === "/api/scans"
+              ? [diagnostic]
+              : diagnostic,
+      })),
+    );
+    render(<App />);
+    await screen.findByText("Film test · stats unavailable");
+    expect(screen.getByText("No recommended transaction")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Game date, fantasy eligibility and statistics are unverified/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/#null/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Copy move summary/ }),
+    ).not.toBeInTheDocument();
+  });
   it("shows backend errors without marking a failed request complete", async () => {
     vi.stubGlobal(
       "fetch",

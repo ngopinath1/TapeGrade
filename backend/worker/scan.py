@@ -35,7 +35,7 @@ from backend.db.schema import (
 )
 from backend.models.base import ModelError
 from backend.models.mock import MockSAM, MockSpark
-from backend.services.clips import LocalClipProvider
+from backend.services.clips import LocalClipProvider, players_with_permitted_clips
 from backend.services.metrics import calculate_metrics
 from backend.services.overlays import create_overlays
 from backend.services.state import get_guardrails, get_league, seed_demo
@@ -51,6 +51,14 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
             existing = s.scalar(select(ScanRun).where(ScanRun.request_key == request_key))
             if existing:
                 return existing.id
+        league = get_league(factory)
+        if not settings.mock_models:
+            available = players_with_permitted_clips(league, factory)
+            if not available:
+                raise ModelError(
+                    f"Upload a permitted clip (up to {settings.max_clip_seconds} seconds) in Film library before starting a live scan. No API credits were used."
+                )
+            league = {**league, "available": available}
         run = ScanRun(
             league_id="demo-nba",
             instruction=instruction,
@@ -58,7 +66,7 @@ def enqueue(instruction, source="manual", request_key=None, factory=None):
             source=source,
             request_key=request_key,
             checkpoint={
-                "league": get_league(factory),
+                "league": league,
                 "candidates": [],
                 "max_candidates": settings.max_candidates,
                 "max_sam_retries": settings.max_sam_retries,
@@ -135,7 +143,12 @@ class Job:
         self.heartbeat()
         with session_scope(self.factory) as s:
             run = s.get(ScanRun, self.id)
-            if run.live_calls >= settings.max_live_model_calls_per_scan:
+            limit = (
+                min(settings.max_live_model_calls_per_scan, self.cp.get("film_call_limit", 4))
+                if self.cp.get("film_test")
+                else settings.max_live_model_calls_per_scan
+            )
+            if run.live_calls >= limit:
                 raise ModelError(
                     "Live model call budget reached. Reduce candidates or increase the explicit scan budget."
                 )
@@ -209,7 +222,15 @@ class CachedSpark:
         data = self.job.cached(
             model,
             operation,
-            {"input": payload, "images": images or [], "schema": schema.model_json_schema()},
+            {
+                "input": payload,
+                "images": images or [],
+                "schema": schema.model_json_schema(),
+                "inference_config": {
+                    "max_completion_tokens": settings.spark_max_completion_tokens,
+                    "reasoning_effort": settings.spark_reasoning_effort,
+                },
+            },
             lambda: self.raw.reason(operation, payload, schema, images).model_dump(),
         )
         return schema.model_validate(data)
@@ -223,6 +244,11 @@ def process(scan_id, token, factory=None):
             raise ModelError(
                 "Job model mode differs from worker configuration. Restart with the original mode or create a new scan."
             )
+        if job.cp.get("film_test"):
+            from backend.worker.film import process_film
+
+            process_film(job)
+            return
         if mock:
             raw_spark, sam, image = MockSpark(), MockSAM(), None
         else:
@@ -468,7 +494,7 @@ def process(scan_id, token, factory=None):
             92,
         )
         card, card_error = None, None
-        if candidates:
+        if candidates and (mock or any(c["verified"] for c in candidates)):
             best = next(
                 (c for c in candidates if staged and c["player"]["id"] == staged["add_player_id"]),
                 candidates[0],
@@ -486,6 +512,9 @@ def process(scan_id, token, factory=None):
             except ModelError as e:
                 card_error = str(e)
                 job.event("GENERATING_CARD", "Muse Image", f"Card unavailable: {e}")
+        elif candidates:
+            card_error = "No verified film; image generation skipped to preserve the API budget."
+            job.event("GENERATING_CARD", "TapeGrade", card_error)
         # Re-check the latest settings after slow image generation.
         from backend.services.staging import validate_decision
 

@@ -22,8 +22,10 @@ Do not exceed guardrails, and never recommend dropping protected players."""
 
 
 class MuseSpark:
-    def __init__(self, transport=None):
+    def __init__(self, transport=None, *, max_completion_tokens=None, reasoning_effort=None):
         self.transport = transport or MetaTransport()
+        self.max_completion_tokens = max_completion_tokens or settings.spark_max_completion_tokens
+        self.reasoning_effort = reasoning_effort or settings.spark_reasoning_effort
 
     def reason(self, operation, payload, schema, images=None):
         content = [
@@ -36,6 +38,8 @@ class MuseSpark:
             "/chat/completions",
             {
                 "model": settings.spark_model,
+                "max_completion_tokens": self.max_completion_tokens,
+                "reasoning_effort": self.reasoning_effort,
                 "messages": [
                     {"role": "system", "content": SYSTEM},
                     {"role": "user", "content": content},

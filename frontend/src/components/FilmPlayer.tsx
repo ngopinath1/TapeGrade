@@ -74,7 +74,7 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           <h2>{candidate?.player.name ?? "The opportunity is on tape."}</h2>
           <p>
             {candidate
-              ? `${candidate.player.team} · #${candidate.player.number} · ${candidate.player.positions.join(" / ")}`
+              ? `${candidate.player.team}${candidate.player.number === null ? "" : ` · #${candidate.player.number}`} · ${candidate.player.positions.join(" / ")}`
               : "Run a scan to open the film report."}
           </p>
         </div>

@@ -42,6 +42,13 @@ data/cache/*
 data/uploads/*
 !data/uploads/.gitkeep
 data/samples/*.mp4
+# Local source footage and derived videos are never committed.
+*.[mM][pP]4
+*.[mM][oO][vV]
+*.webm
+*.mkv
+*.m4v
+*.avi
 .DS_Store
 *.log
 .idea/

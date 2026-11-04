@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(100, ge=1, le=200)
     meta_base_url: str = "https://api.meta.ai"
     spark_model: str = "muse-spark-1.3"
+    spark_max_completion_tokens: int = Field(2048, ge=128, le=16384)
+    spark_reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh", "max"] = "low"
     sam_model: str = "sam-3.1"
     image_model: str = "muse-image-1.0"
     model_timeout_seconds: int = 120

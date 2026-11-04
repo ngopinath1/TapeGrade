@@ -20,7 +20,7 @@ def media_url(path: Path) -> str:
     return "/media/" + str(path.relative_to(settings.data_dir))
 
 
-def inspect_video(path: Path) -> dict:
+def inspect_video(path: Path, max_input_seconds: float = 600) -> dict:
     try:
         result = subprocess.run(
             [
@@ -47,13 +47,13 @@ def inspect_video(path: Path) -> dict:
         duration = float(raw["format"]["duration"])
         n, d = map(float, v["r_frame_rate"].split("/"))
         if (
-            not 0 < duration <= 600
+            not 0 < duration <= max_input_seconds
             or not 0 < n / d <= 240
             or not 0 < v["width"] <= 7680
             or not 0 < v["height"] <= 4320
         ):
             raise ValueError(
-                "Unsupported video dimensions, frame rate, or duration (max 10 minutes input)."
+                f"Unsupported video dimensions, frame rate, or duration (max {max_input_seconds:g} seconds input)."
             )
         return {
             "width": v["width"],
@@ -146,16 +146,35 @@ class LocalClipProvider:
 
     def find(self, player_id: str) -> dict | None:
         with session_scope(self.factory) as s:
-            clip = s.scalar(
+            clips = s.scalars(
                 select(Clip)
                 .where(Clip.player_id == player_id, Clip.is_demo == False)
                 .order_by(Clip.created_at.desc())
             )
-            if clip:
-                return clip.data
+            for clip in clips:
+                if usable_upload(clip.data):
+                    return clip.data
         if self.mock:
             return prepare_clip(ensure_sample(player_id), player_id, True, self.factory)
         return None
+
+
+def usable_upload(data: dict) -> bool:
+    try:
+        return (
+            local_path(data["url"]).is_file()
+            and 0 < data["duration"] <= settings.max_clip_seconds + 0.1
+        )
+    except (KeyError, ValueError, TypeError):
+        return False
+
+
+def players_with_permitted_clips(league: dict, factory=None) -> list[dict]:
+    """Select only existing uploads before spending live scouting credits."""
+    with session_scope(factory) as s:
+        uploads = s.scalars(select(Clip).where(Clip.is_demo == False)).all()
+        ready = {clip.player_id for clip in uploads if usable_upload(clip.data)}
+    return [p for p in league["available"] if p["id"] in ready]
 
 
 def local_path(url: str) -> Path:

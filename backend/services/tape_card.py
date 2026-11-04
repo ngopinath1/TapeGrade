@@ -20,7 +20,7 @@ def font(size):
     return ImageFont.load_default(size=size)
 
 
-def render_card(player, verdict, metrics, clip, mock, image_client=None) -> dict:
+def render_card(player, verdict, metrics, clip, mock, image_client=None, diagnostic=None) -> dict:
     key = sha256(
         repr(
             (
@@ -30,7 +30,8 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None) -> dict
                 (clip or {}).get("content_hash"),
                 mock,
                 settings.image_model,
-                "card-v2",
+                "card-v4",
+                diagnostic,
             )
         ).encode()
     ).hexdigest()
@@ -70,6 +71,15 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None) -> dict
         fill="#a9b5a1",
     )
     measured = [m for m in metrics if m["value"] is not None][:2]
+    if not measured and diagnostic:
+        measured = [
+            {
+                "value": round(diagnostic["quality"] * 100),
+                "unit": "%",
+                "label": "AI tracking quality",
+            },
+            {"value": diagnostic["observed_frames"], "unit": "", "label": "Frames observed"},
+        ]
     for i, m in enumerate(measured):
         x = 64 + i * 490
         d.line((x, 861, x + 440, 861), fill="#44523e", width=2)
@@ -81,7 +91,15 @@ def render_card(player, verdict, metrics, clip, mock, image_client=None) -> dict
     d.line((64, 1214, 1016, 1214), fill="#44523e", width=2)
     d.text(
         (64, 1245),
-        "SIMULATED DEMO · FICTIONAL PLAYER" if mock else "LIVE MODELS · FICTIONAL SAMPLE LEAGUE",
+        (
+            "LIVE MODELS · FILM DIAGNOSTIC · NO FANTASY TRANSACTION"
+            if player.get("film_only")
+            else (
+                "SIMULATED DEMO · FICTIONAL PLAYER"
+                if mock
+                else "LIVE MODELS · FICTIONAL SAMPLE LEAGUE"
+            )
+        ),
         font=font(18),
         fill="#a7b49e",
     )

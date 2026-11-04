@@ -350,7 +350,9 @@ export default function App() {
                 <span>
                   {(scan?.mode ?? data.models_mode) === "mock"
                     ? "Simulated models, fictional players & original schematic film"
-                    : "Real Meta inference · fictional sample league statistics"}
+                    : scan?.result?.film_test
+                      ? "Real Meta inference · film diagnostic · no fantasy statistics"
+                      : "Real Meta inference · fictional sample league statistics"}
                 </span>
                 {scan?.stage === "FAILED" && (
                   <button
@@ -383,6 +385,13 @@ export default function App() {
               {scan?.error && (
                 <div role="alert" className="error-banner">
                   {scan.error}
+                </div>
+              )}
+              {scan?.result?.film_test && (
+                <div className="worker-note">
+                  Film diagnostic · user-provided excerpt · visible jersey
+                  target only. Game date, fantasy eligibility and statistics are
+                  unverified. No roster move is recommended.
                 </div>
               )}
               {scan && !scan.result && !complete(scan.stage) && (

@@ -15,8 +15,9 @@ or downloaded sports footage. It uses **fictional players and statistics**, orig
 procedural basketball footage, and deterministic simulated model responses.
 
 The actual Meta clients are implemented and covered by **offline HTTP contract
-tests**. No paid inference was run during development. Valid model access and
-permitted video input are required to validate live inference on your account.
+tests**. The initial build used no paid inference. See `PROGRESS.md` for subsequent
+explicitly authorized live checks. Permitted video input is required for a full
+three-model live scan.
 
 ### macOS prerequisites
 
@@ -182,6 +183,90 @@ Typography and verified measurements are always composited locally. Generated
 artwork is decorative, never evidence for a measured statistic.
 
 ## Enable actual Meta inference
+
+For a first check with minimal usage, run:
+
+```bash
+.venv/bin/python -m scripts.live_check
+```
+
+This checks the backend credential against Meta's documented model catalog, without
+running inference. It never displays the key. To explicitly run **one** Muse Spark
+structured-output check through the actual client and ScoutAgent:
+
+```bash
+.venv/bin/python -m scripts.live_check --spark
+```
+
+The optional call uses fictional data, minimal reasoning and a 512-token output
+cap; it makes no automatic retry and does not invoke SAM or Muse Image. Repeating
+`--spark` makes another request. Its sanitized result and API-reported token usage
+are written to ignored `data/cache/live-check.json`. This is a connectivity/schema
+check, not a film analysis or roster recommendation.
+
+Launch the app with a temporary low-usage profile:
+
+```bash
+bash scripts/dev-live.sh
+```
+
+This leaves `.env` unchanged and starts the API, worker and frontend with live
+models, fictional league data, **one candidate, no SAM retries, a six-call scan
+limit, five-second clips, 2048 output tokens per Spark call, minimal reasoning,
+and scheduling disabled**. A successful initial three-model scan needs up to six
+inference calls; this is a call limit, not a dollar estimate. Upload a permitted
+MP4/MOV and identify its target in Film library before starting a scan. Live scouting
+only considers candidates that have an existing permitted clip. An empty film
+library blocks scans before any inference; rejected film skips image generation.
+The upload form displays the active clip-duration limit.
+
+On November 3 all three actual clients completed requests on a user-provided
+four-second highlight excerpt. SAM returned 48 frames; Spark detected degraded
+defender tracking and assigned 55% quality, so numerical film proxies were withheld.
+Muse Image generated the diagnostic card artwork. This validates the integrations,
+not full-game tracking accuracy or an evidence-based fantasy transaction. The
+shipped schematic sample remains marked simulated.
+
+[Video discovery notes](docs/VIDEO_SOURCES.md) list official ESPN/SportsCenter viewing
+links and two short archival samples with listed Creative Commons licenses. These
+historical clips are integration-test candidates, not current fantasy evidence.
+The attempted sample download was rate-limited; no clip was downloaded or imported.
+Discovery links alone do not provide a video file or establish processing rights.
+
+### Test a long local video without sending the whole file
+
+The browser uploader still limits source files to 100 MB / 10 minutes. For a longer
+local MP4/MOV (up to one hour), the clip utility extracts a 1–5 second excerpt first.
+The original stays local, audio is removed, and only the normalized excerpt and
+sampled frames can be sent to Meta. Start `bash scripts/dev-live.sh`, then in another
+terminal run:
+
+```bash
+MOCK_MODELS=0 MAX_CLIP_SECONDS=5 .venv/bin/python -m scripts.film_check \
+  "/absolute/path/to/highlights.mp4" --start 4 --duration 4 \
+  --subject "Visible ball handler" --team GSW \
+  --description "Black-and-yellow uniformed player with yellow shoes, dribbling at the far left wing in frame zero. No real name or jersey number asserted." \
+  --execute
+```
+
+Inspect the selected frame before choosing its visual description. Without
+`--execute`, this command only prepares media locally and makes no model calls.
+With `--execute`, the persistent worker performs at most **four** requests: Spark
+verification, SAM tracking, Spark criticism and one Muse Image background. Rejected
+verification skips the remaining calls. Identical input reuses the existing job.
+
+The report appears on the scouting desk and in scan history as a **film diagnostic**.
+Real-name identity, game date and fantasy statistics stay unverified; no add/drop or
+FAAB transaction is produced. A MONITOR label means review this diagnostic, not a
+fantasy recommendation. The card labels AI tracking quality and observed frame
+count when reliable fantasy film metrics are unavailable.
+
+No automatic paid retry occurs after a failed response. The explicit **Retry scan**
+button, or the same command with `--execute --retry`, permits up to two additional
+attempts and at most six total for that diagnostic. Successful tracking and other
+saved outputs are retained. Perception-driven re-segmentation remains disabled in
+this budget-limited diagnostic; normal scouting jobs implement the bounded critic
+loop. Never relabel a real athlete as a fictional demo player to bypass verification.
 
 Official documentation was inspected before implementing these request contracts:
 
@@ -426,5 +511,7 @@ supplies the artwork; Pillow ensures exact names and verified numbers. End with
 the three roles: SAM perceives, Spark checks and decides, Image communicates.
 
 Submission deadline supplied for this project: **November 4, 2026, 9:00 PM ET**.
-Reserve time before the deadline to validate live credentials and prepare a
-rights-cleared clip; live inference has not been run by this build session.
+Credentials, Spark structured output, actual SAM masks and Muse Image artwork were
+verified on November 3. Reserve time before the deadline for broader footage
+validation and a supported statistics provider; real fantasy recommendations remain
+unverified beyond the offline fixtures and complete mock demonstration.

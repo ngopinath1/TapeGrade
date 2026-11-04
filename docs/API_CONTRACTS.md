@@ -1,7 +1,12 @@
 # API integration notes
 
-Reviewed November 1, 2026 (America/New_York). The exact upstream guides are linked
-in README.md. Real account-level availability has not been tested.
+Reviewed November 3, 2026 (America/New_York). The exact upstream guides are linked
+in README.md. An authenticated model-catalog request listed all three configured
+models, and one actual Spark structured-output check passed (700 total tokens).
+Subsequently all three clients completed requests for a user-provided four-second
+film diagnostic: 48 actual SAM frames, Spark quality 55%, unreliable numerical
+metrics withheld, and a real Muse Image background with locally composited labels.
+This is not validation of a live fantasy transaction or full-game accuracy.
 
 ## Meta
 
@@ -34,10 +39,10 @@ Read the generated OpenAPI spec at `/openapi.json` or `/docs` on port 8000.
 | GET /api/health | Health and model/data mode |
 | GET /api/bootstrap | League, settings, watchlist, public mode/configuration |
 | GET, PUT /api/settings | Persisted and revalidated guardrails |
-| POST /api/scans | Enqueue (202); optional Idempotency-Key header |
+| POST /api/scans | Enqueue (202); optional Idempotency-Key header; live mode returns 409 before inference when no usable permitted upload exists |
 | GET /api/scans | Last 30 scans |
 | GET /api/scans/{id} | Result, progress and ordered event trail |
-| POST /api/scans/{id}/retry | Explicit retry for FAILED run |
+| POST /api/scans/{id}/retry | Explicit retry for FAILED run; film diagnostics allow up to two additional calls with a six-total ceiling |
 | GET /api/scans/{id}/card | PNG attachment |
 | POST /api/watchlist/{player_id} | Toggle watchlist membership |
 | GET, POST /api/clips | List uploads / upload multipart file + player_id + rights_confirmed |
