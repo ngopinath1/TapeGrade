@@ -97,6 +97,12 @@ class ScanRun(Base):
     request_key: Mapped[str | None] = mapped_column(unique=True)
 
 
+class ScanReview(Base):
+    __tablename__ = "scan_reviews"
+    scan_id: Mapped[str] = mapped_column(ForeignKey("scan_runs.id"), primary_key=True)
+    signature: Mapped[str]
+
+
 class JobEvent(Base):
     __tablename__ = "job_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

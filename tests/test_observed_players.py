@@ -182,6 +182,25 @@ def test_failed_opponent_track_cannot_influence_another_players_measurements(sto
     assert all(m["value"] is None for m in profiles[1]["film"]["metrics"])
 
 
+def test_selecting_an_observed_player_rescopes_reviewed_overlay_roles(store, observed):
+    c, league, _ = observed
+    c["reviewed_tracking"] = deepcopy(c["tracking"])
+    c["tracking_review"] = {
+        "scene_only": False,
+        "target_quality": 0.9,
+        "trusted_object_ids": [1, 2, 3],
+        "quality_by_id": {"1": 0.9, "2": 0.9, "3": 0.9},
+        "issues": [],
+        "roles": {"target": 1, "defender": 2, "ball": 0, "unknown": 0},
+    }
+    c["identified_players"] = build_player_profiles(c, league, store, NOW)
+    related = add_observed_candidates([c], league, Guardrails(protected_players=[]))[1]
+    assert related["player"]["name"] == "Jamal Cain"
+    roles = {o["id"]: o["role"] for o in related["reviewed_tracking"]["frames"][0]["objects"]}
+    assert roles[3] == "target" and roles[1] == "defender"
+    assert 2 not in roles  # A teammate of the selected player is not a defender.
+
+
 @pytest.mark.parametrize(
     "fault",
     ["jersey", "duplicate", "game_date", "unreadable", "shared_id_conflict", "missing_batch"],

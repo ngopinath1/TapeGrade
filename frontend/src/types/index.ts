@@ -43,6 +43,7 @@ export type Guardrails = {
   protected_players: string[];
   schedule_enabled: boolean;
   pre_waiver_hour: number | null;
+  scoring_weights?: Record<string, number> | null;
 };
 export type League = {
   id: string;
@@ -233,6 +234,15 @@ export type ObservedPlayerProfile = {
   };
 };
 export type Candidate = {
+  reviewed_tracking?: Tracking;
+  tracking_review?: {
+    scene_only: boolean;
+    quality_by_id: Record<string, number>;
+    trusted_object_ids: number[];
+    target_quality: number;
+    issues: string[];
+    roles: Record<"target" | "defender" | "ball" | "unknown", number>;
+  };
   clip_attempts?: {
     source_span?: { start: number; end: number } | null;
     number: number;
@@ -323,6 +333,7 @@ export type ScanEvent = {
   detail: Record<string, unknown>;
 };
 export type Scan = {
+  reviewed?: boolean;
   action_needed?: {
     destination: "data" | "connect";
     section?: "rules" | "statistics";

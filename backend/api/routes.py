@@ -17,11 +17,18 @@ from backend.db.schema import (
     JobEvent,
     Player,
     ScanRun,
+    ScanReview,
     StagedMove,
     Watchlist,
 )
 from backend.services.clips import inspect_video, local_path, prepare_clip
-from backend.services.state import get_guardrails, get_league, save_league, select_demo
+from backend.services.state import (
+    apply_scoring,
+    get_guardrails,
+    get_league,
+    save_league,
+    select_demo,
+)
 from backend.services.scan_readiness import scan_readiness
 from backend.worker.scan import enqueue
 from backend.models.base import ModelError
@@ -128,11 +135,22 @@ def save_settings(value: Guardrails):
     if not set(value.protected_players) <= roster_ids:
         raise HTTPException(422, "Protected players must be on the current roster.")
     with session_scope() as s:
+        league_row = s.get(League, league["id"])
+        next_league = apply_scoring(league_row.data, value.model_dump())
+        scoring_changed = next_league["scoring"] != league["scoring"]
         if league.get("is_demo", True):
             s.get(GuardrailSettings, "local").data = value.model_dump()
         else:
-            row = s.get(League, league["id"])
-            row.data = {**row.data, "guardrails": value.model_dump(), "protections_reviewed": True}
+            data = {
+                **league_row.data,
+                "guardrails": value.model_dump(),
+                "protections_reviewed": True,
+            }
+            from backend.services.stat_enrichment import fingerprint
+
+            if scoring_changed and data.get("rules", {}).get("fingerprint") == fingerprint(league):
+                data["rules"] = {**data["rules"], "fingerprint": fingerprint(next_league)}
+            league_row.data = data
         # A saved recommendation cannot bypass a newly tightened guardrail.
         for row in s.scalars(
             select(ScanRun).where(ScanRun.stage == "COMPLETED", ScanRun.league_id == league["id"])
@@ -147,7 +165,8 @@ def save_settings(value: Guardrails):
                 if c["player"]["id"] == move["add_player_id"]
             )
             if (
-                move["drop_player_id"] in value.protected_players
+                scoring_changed
+                or move["drop_player_id"] in value.protected_players
                 or verdict["confidence"] < value.min_confidence
             ):
                 result["staged_move"] = None
@@ -165,7 +184,7 @@ def save_settings(value: Guardrails):
     return value
 
 
-def scan_json(row):
+def scan_json(row, review=None):
     return {
         "id": row.id,
         "stage": row.stage,
@@ -180,6 +199,7 @@ def scan_json(row):
         "source": row.source,
         "result": row.result,
         "action_needed": row.checkpoint.get("recovery"),
+        "reviewed": bool(review and review.signature == f"{row.attempts}:{row.stage}"),
     }
 
 
@@ -187,13 +207,18 @@ def scan_json(row):
 def history():
     league_id = get_league()["id"]
     with session_scope() as s:
+        reviews = {
+            r.scan_id: r
+            for r in s.scalars(
+                select(ScanReview).join(ScanRun).where(ScanRun.league_id == league_id)
+            )
+        }
         return [
-            scan_json(r)
+            scan_json(r, reviews.get(r.id))
             for r in s.scalars(
                 select(ScanRun)
                 .where(ScanRun.league_id == league_id)
                 .order_by(ScanRun.created_at.desc())
-                .limit(30)
             )
         ]
 
@@ -247,7 +272,7 @@ def scan_detail(scan_id: str):
             select(JobEvent).where(JobEvent.scan_id == scan_id).order_by(JobEvent.id)
         ).all()
         return {
-            **scan_json(row),
+            **scan_json(row, s.get(ScanReview, scan_id)),
             "events": [
                 {
                     "id": e.id,
@@ -260,6 +285,24 @@ def scan_detail(scan_id: str):
                 for e in events
             ],
         }
+
+
+@router.post("/scans/{scan_id}/review")
+def review_scan(scan_id: str):
+    league_id = get_league()["id"]
+    with session_scope() as s:
+        row = s.get(ScanRun, scan_id)
+        if not row or row.league_id != league_id:
+            raise HTTPException(404, "Scan not found")
+        if row.stage not in {"COMPLETED", "FAILED"}:
+            return {"reviewed": False}
+        signature = f"{row.attempts}:{row.stage}"
+        review = s.get(ScanReview, scan_id)
+        if review:
+            review.signature = signature
+        else:
+            s.add(ScanReview(scan_id=scan_id, signature=signature))
+        return {"reviewed": True}
 
 
 @router.post("/scans/{scan_id}/retry", status_code=202)

@@ -41,6 +41,7 @@ def fallback(store, monkeypatch):
         no_observations=False,
         transport_failure=False,
         invalid_batch=False,
+        scene_only=False,
         critics=0,
     )
     objects = [
@@ -50,7 +51,7 @@ def fallback(store, monkeypatch):
     ]
 
     def verified(clip_id):
-        good = not (case.identity_bad and clip_id == first["id"])
+        good = not case.scene_only and not (case.identity_bad and clip_id == first["id"])
         return {
             "verified": good,
             "confidence": 0.96 if good else 0.2,
@@ -58,7 +59,7 @@ def fallback(store, monkeypatch):
                 "OFFLINE fixture identity clear" if good else "OFFLINE fixture jersey unreadable"
             ),
             "target_description": "OFFLINE fixture target",
-            "objects": objects if good else [],
+            "objects": objects if good or case.scene_only else [],
         }
 
     class Spark:
@@ -94,6 +95,17 @@ def fallback(store, monkeypatch):
                     "refined_prompt": "",
                     "explanation": "OFFLINE unclear track" if bad else "OFFLINE good tracking",
                 }
+                if case.scene_only:
+                    data["object_tracking_checks"] = [
+                        {
+                            "object_id": o["id"],
+                            "quality_score": 0.92,
+                            "identity_preserved": True,
+                            "role_correct": True,
+                            "reason": "OFFLINE visible scene object",
+                        }
+                        for o in payload["verified_seed_objects"]
+                    ]
             elif operation == "decide":
                 data = {
                     "verdicts": [
@@ -186,6 +198,21 @@ def test_tracking_failure_switches_clips_and_completes_in_six_calls(store, fallb
         )
         assert [l.data["clip_id"] for l in logs] == [fallback.first["id"], fallback.second["id"]]
         assert len(list(s.scalars(select(ModelCall).where(ModelCall.scan_id == fallback.sid)))) == 6
+
+
+def test_unconfirmed_identity_can_show_anonymous_scene_tracks_without_named_metrics(
+    store, fallback
+):
+    fallback.scene_only = True
+    c, calls = completed(store, fallback)
+    assert calls == 6
+    assert c["verified"] is False and c["tracking_accepted"] is False
+    assert c["tracking_review"]["scene_only"] is True
+    assert {o["role"] for f in c["reviewed_tracking"]["frames"] for o in f["objects"]} == {
+        "unknown",
+        "ball",
+    }
+    assert all(m["value"] is None for m in c["metrics"])
 
 
 def test_unclear_identity_uses_other_prechecked_clip_without_tracking_rejected_player(

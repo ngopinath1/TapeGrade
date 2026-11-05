@@ -2,7 +2,7 @@
 
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--content);
   background: var(--canvas);
   font-synthesis: none;
@@ -40,7 +40,8 @@
   --space-12: 48px;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-appearance="light"]) {
+    color-scheme: dark;
     --canvas: #161617;
     --panel: #1c1c1e;
     --surface-secondary: #202022;
@@ -61,6 +62,28 @@
     --toolbar: #1d1d1f;
     --layer-shadow: 0 16px 64px #00000060, 0 1px 6px #00000030;
   }
+}
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+  --canvas: #161617;
+  --panel: #1c1c1e;
+  --surface-secondary: #202022;
+  --sidebar: #202022;
+  --content: #f5f5f7;
+  --muted: #a1a1a6;
+  --accent: #64a8ff;
+  --selection: #343438;
+  --hover: #2c2c30;
+  --line: #3a3a3e;
+  --control-line: #77777e;
+  --success: #85cda0;
+  --success-soft: #20392a;
+  --warning: #e8c87e;
+  --warning-soft: #352e20;
+  --danger: #ffa5ac;
+  --danger-soft: #3c2529;
+  --toolbar: #1d1d1f;
+  --layer-shadow: 0 16px 64px #00000060, 0 1px 6px #00000030;
 }
 * {
   box-sizing: border-box;
@@ -881,6 +904,11 @@ summary:hover {
   color: var(--muted);
   font-size: 0.75rem;
 }
+.tracking-coverage {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
 .film-legend > span {
   display: inline-flex;
   align-items: center;
@@ -1340,6 +1368,45 @@ tbody tr:hover {
 .numeric {
   font-variant-numeric: tabular-nums;
 }
+.column-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.info-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.info-button:hover,
+.info-button:focus-visible {
+  color: var(--accent);
+  background: var(--hover);
+}
+.info-tooltip {
+  position: fixed;
+  z-index: 200;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-group);
+  background: var(--panel);
+  color: var(--content);
+  box-shadow: var(--layer-shadow);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: normal;
+}
+.unreviewed-label {
+  color: var(--accent);
+}
 .protected {
   display: inline-flex;
   gap: 5px;
@@ -1468,6 +1535,21 @@ tbody tr:hover {
   color: var(--muted);
   font-size: 0.8125rem;
   margin-bottom: 12px;
+}
+.appearance-row {
+  flex-wrap: wrap;
+}
+.appearance-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.scoring-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+.scoring-grid .setting-row {
+  border-bottom: 1px solid var(--line);
 }
 .settings-group + .settings-description {
   margin: 10px 5px 0;

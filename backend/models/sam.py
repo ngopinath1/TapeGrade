@@ -19,17 +19,23 @@ from backend.models.transport import MetaTransport, data_url
 from backend.services.clips import media_url
 
 
-def seed_prompt(clip: dict, objects: list[dict], frame: int = 0) -> str:
-    if not 0 <= frame < clip["duration"] * clip["fps"]:
-        raise ModelError("Spatial correction frame is outside the clip.")
+def seed_prompt(
+    clip: dict, objects: list[dict], frame: int | None = None, *, require_target=True
+) -> str:
     ids = set()
     for obj in objects:
+        anchor = frame if frame is not None else obj.get("frame", 0)
+        sampled = {f["frame"] for f in clip.get("frames", [])}
+        if not 0 <= anchor < clip["duration"] * clip["fps"] or (sampled and anchor not in sampled):
+            raise ModelError("Spatial seed frame must be an inspected frame inside the clip.")
         x1, y1, x2, y2 = obj["box"]
         if obj["id"] in ids or not (0 <= x1 < x2 < clip["width"] and 0 <= y1 < y2 < clip["height"]):
             raise ModelError("Muse Spark returned invalid or duplicate source-pixel seed boxes.")
         ids.add(obj["id"])
-    if len([o for o in objects if o["role"] == "target"]) != 1:
+    if require_target and len([o for o in objects if o["role"] == "target"]) != 1:
         raise ModelError("Spatial guidance requires exactly one verified target.")
+    if not objects:
+        raise ModelError("Spatial guidance requires at least one visible object.")
     return build_object_prompt(
         size=(clip["width"], clip["height"]),
         objects=[
@@ -37,7 +43,7 @@ def seed_prompt(clip: dict, objects: list[dict], frame: int = 0) -> str:
                 id=o["id"],
                 prompts=[
                     FramePrompt(
-                        frame=frame,
+                        frame=frame if frame is not None else o.get("frame", 0),
                         box=PromptBox(o["box"][0], o["box"][1], o["box"][2] + 1, o["box"][3] + 1),
                     )
                 ],
@@ -58,7 +64,12 @@ def corrected_prompt(clip, original_objects, critique):
             raise ModelError(
                 "Spatial correction must preserve verified role bindings and reference an inspected frame."
             )
-        return seed_prompt(clip, objects, critique.retry_frame)
+        return seed_prompt(
+            clip,
+            objects,
+            critique.retry_frame,
+            require_target=any(o["role"] == "target" for o in original_objects),
+        )
     # Free-form concept ordinals cannot retain multiple spatial role bindings.
     if len(original_objects) > 1 and not critique.refined_prompt.strip().startswith("<"):
         return None
@@ -73,7 +84,8 @@ def parse_tracking(
     parsed = parser.finish(CompletedOutcome()).result
     if parsed.diagnostics:
         raise ModelError("SAM output contains malformed geometry; partial tracking was rejected.")
-    key = sha256((clip["content_hash"] + settings.sam_model + prompt).encode()).hexdigest()
+    # Rechecks may produce different masks for the same prompt; retain older report assets.
+    key = sha256((clip["content_hash"] + settings.sam_model + prompt + raw).encode()).hexdigest()
     directory = directory or settings.data_dir / "cache" / "sam" / key
     directory.mkdir(parents=True, exist_ok=True)
     raw_path = directory / "response.txt"
@@ -101,7 +113,9 @@ def parse_tracking(
         if record is None:
             raise ModelError("SAM box is missing its mask.")
         try:
-            raster = decode_mask_to_raster(record.mask)
+            raster = list(decode_mask_to_raster(record.mask))
+            if not any(raster):
+                continue
             mask = Image.frombytes(
                 "L", (record.mask.width, record.mask.height), bytes(255 if b else 0 for b in raster)
             )

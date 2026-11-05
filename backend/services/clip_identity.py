@@ -99,6 +99,16 @@ def review_tracking_identity(identity, critique):
         and not critique.role_conflicts
         and not getattr(critique, "identity_swaps", [])
     )
+    object_checks = [c for c in getattr(critique, "object_tracking_checks", []) if c.object_id == 1]
+    if object_checks:
+        # Other objects are filtered independently; defender drift does not negate a clear target.
+        accepted = (
+            len(object_checks) == 1
+            and object_checks[0].identity_preserved
+            and object_checks[0].role_correct
+            and object_checks[0].quality_score >= settings.perception_quality_threshold
+            and critique.target_identity_preserved is True
+        )
     target_checks = [c for c in getattr(critique, "player_identity_checks", []) if c.object_id == 1]
     if target_checks:
         accepted = (
@@ -126,7 +136,7 @@ def assess_identity(player, clip, verification):
     targets = [o for o in verification.objects if o.role == "target"]
     target = targets[0] if len(targets) == 1 else None
     if not target or target.id != 1 or not valid_box(target.box, clip):
-        reasons.append("Exactly one valid frame-zero target seed under tracking ID 1 is required.")
+        reasons.append("Exactly one valid target seed under tracking ID 1 is required.")
     ids = [o.id for o in verification.objects]
     if len(ids) != len(set(ids)) or any(not valid_box(o.box, clip) for o in verification.objects):
         reasons.append("Tracking seeds contain duplicate IDs or boxes outside the source frame.")
@@ -154,15 +164,18 @@ def assess_identity(player, clip, verification):
         reasons.append(
             "Visible jersey or team evidence conflicts across the target's sampled frames."
         )
-    frame_zero = [
-        o for o in matched if o["frame"] == 0 and target and overlap(o["box"], target.box) >= 0.35
+    seed_frame = target.frame if target else 0
+    bound = [
+        o
+        for o in matched
+        if o["frame"] == seed_frame and target and overlap(o["box"], target.box) >= 0.35
     ]
-    if not frame_zero:
+    if not bound:
         reasons.append(
-            "The identified jersey must be bound to the same player box used to seed frame-zero tracking."
+            "The identified jersey must be bound to the same player box and frame used to seed tracking."
         )
     continuity = set(verification.continuity_frames)
-    if 0 not in continuity or len(continuity) < 2 or not continuity <= sampled:
+    if seed_frame not in continuity or len(continuity) < 2 or not continuity <= sampled:
         reasons.append(
             "Continuity needs at least two inspected frames, including the tracking seed frame."
         )

@@ -44,11 +44,20 @@ function mockApi(data: Bootstrap, scans: Scan[] = []) {
                 }
               : url === "/api/clips"
                 ? []
-                : (scans[0] ?? fixture.scan);
+                : url.endsWith("/review")
+                  ? { reviewed: true }
+                  : (scans[0] ?? fixture.scan);
     return { ok: true, json: async () => result };
   });
   vi.stubGlobal("fetch", fetcher);
   return fetcher;
+}
+
+async function openSavedScan() {
+  fireEvent.click(await screen.findByRole("button", { name: /Scan history/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(fixture.scan.instruction) }),
+  );
 }
 
 describe("guided scouting workflow", () => {
@@ -184,6 +193,7 @@ describe("guided scouting workflow", () => {
     } as Scan;
     mockApi(fixture.bootstrap as Bootstrap, [running]);
     render(<App />);
+    await openSavedScan();
     const progress = await screen.findByRole("progressbar", {
       name: "Scouting progress",
     });
@@ -251,6 +261,7 @@ describe("guided scouting workflow", () => {
   it("keeps film and the scan-wide decision in the redesigned detail pane with the audit collapsed", async () => {
     mockApi(fixture.bootstrap as Bootstrap, [fixture.scan as Scan]);
     render(<App />);
+    await openSavedScan();
     const report = await screen.findByRole("region", {
       name: "Selected player report",
     });
@@ -351,6 +362,7 @@ it("displays public viewing links without pretending that their footage was anal
   report.result!.candidates = [candidate];
   mockApi(connected(), [report]);
   render(<App />);
+  await openSavedScan();
   expect(await screen.findByText(/No footage analyzed for/)).toBeVisible();
   expect(
     screen.getByRole("link", { name: /A real publisher clip/ }),
@@ -376,6 +388,7 @@ it("shows the public clip's publisher, game date and excerpt provenance", async 
   report.result!.candidates[0].tracking = null;
   mockApi(connected(), [report]);
   render(<App />);
+  await openSavedScan();
   expect(await screen.findByText("Public ESPN highlight")).toBeVisible();
   expect(
     screen.getByRole("link", { name: "Sam Hauser drills triple" }),
@@ -438,6 +451,7 @@ it("takes a failed automatic scan to the requested rules tab and retries its per
   } as Scan;
   const fetcher = mockApi(connected(), [failed]);
   render(<App />);
+  await openSavedScan();
   fireEvent.click(
     await screen.findByRole("button", { name: "Review league data" }),
   );

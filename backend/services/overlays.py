@@ -19,7 +19,7 @@ def create_overlays(clip: dict, tracking, key: str) -> list[str]:
             else None
         )
         image = Image.open(local_path(source["url"])).convert("RGBA")
-        if frame:
+        if frame and abs(frame.time - source["time"]) <= 0.51 / tracking.fps:
             scale_x, scale_y = image.width / tracking.width, image.height / tracking.height
             for obj in frame.objects:
                 color = COLORS[obj.role]

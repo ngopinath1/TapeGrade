@@ -1,9 +1,25 @@
+from copy import deepcopy
+
 from sqlalchemy import select
 
 from backend.api.types import Guardrails
 from backend.db.database import session_scope
 from backend.db.schema import GuardrailSettings, League, Player, RosterSnapshot, User, Workspace
 from backend.providers.demo import DemoLeagueProvider
+from backend.providers.base import ScoringEngine
+
+
+def apply_scoring(snapshot, guards):
+    league = deepcopy(snapshot)
+    weights = (guards or {}).get("scoring_weights")
+    if weights is not None and weights != league.get("scoring", {}).get("weights"):
+        league["scoring"] = {**league.get("scoring", {}), "weights": weights}
+        if league.get("is_demo", True):
+            for player in league["roster"] + league["available"]:
+                player["fantasy_points"] = ScoringEngine().score(player["stats"], weights)
+                # The sample has no per-game box scores to recalculate its synthetic trend.
+                player["trend"] = []
+    return league
 
 
 def seed_demo(factory=None):
@@ -31,9 +47,14 @@ def get_league(factory=None, league_id=None):
         snapshot = s.get(
             League, league_id or (workspace.active_league_id if workspace else "demo-nba")
         ).data
+        guards = (
+            s.get(GuardrailSettings, "local").data
+            if snapshot.get("is_demo", True)
+            else snapshot.get("guardrails")
+        )
     from backend.services.stat_enrichment import enrich_snapshot
 
-    return enrich_snapshot(snapshot, factory)
+    return enrich_snapshot(apply_scoring(snapshot, guards), factory)
 
 
 def get_guardrails(factory=None, league_id=None):
@@ -54,7 +75,10 @@ def save_league(snapshot, factory=None, select_workspace=True):
         if row:
             from backend.services.stat_enrichment import fingerprint
 
-            if fingerprint(row.data) == fingerprint(data):
+            guards = row.data.get("guardrails")
+            if fingerprint(apply_scoring(row.data, guards)) == fingerprint(
+                apply_scoring(data, guards)
+            ):
                 data["rules"] = row.data.get("rules", {})
             data["eligibility_reviews"] = row.data.get("eligibility_reviews", {})
             data["protections_reviewed"] = bool(row.data.get("protections_reviewed")) and {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import type { Scan } from "../types";
+import { complete } from "../lib/api";
 
 export function ScanHistory({
   scans,
@@ -53,6 +54,9 @@ export function ScanHistory({
               <span
                 className={`history-stage ${scan.stage === "FAILED" ? "failed" : ""}`}
               >
+                {complete(scan.stage) && !scan.reviewed && (
+                  <span className="unreviewed-label">Unreviewed · </span>
+                )}
                 {scan.stage.replaceAll("_", " ").toLowerCase()}
               </span>
               <ChevronRight size={16} />

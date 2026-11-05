@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -13,6 +13,13 @@ class Guardrails(StrictModel):
     protected_players: list[str] = Field(default_factory=lambda: ["r1", "r2", "r3"])
     schedule_enabled: bool = False
     pre_waiver_hour: int | None = Field(None, ge=0, le=23)
+    scoring_weights: (
+        dict[
+            Annotated[str, Field(min_length=1, max_length=64)],
+            Annotated[float, Field(ge=-1000, le=1000, allow_inf_nan=False)],
+        ]
+        | None
+    ) = Field(None, min_length=1, max_length=64)
 
 
 class ScanRequest(StrictModel):
@@ -28,11 +35,14 @@ class Shortlist(StrictModel):
 
 class SeedObject(StrictModel):
     id: int = Field(ge=0, le=15)
-    role: Literal["target", "defender", "ball"]
+    role: Literal["target", "defender", "ball", "unknown"]
+    frame: int = Field(
+        0, ge=0, description="Inspected source frame in which this object is clearly visible."
+    )
     box: list[int] = Field(
         min_length=4,
         max_length=4,
-        description="Inclusive source-pixel x1,y1,x2,y2. Verification uses frame 0; retry objects use retry_frame.",
+        description="Inclusive source-pixel x1,y1,x2,y2 in this object's frame; retry objects use retry_frame.",
     )
     team_code: str | None = None
     jersey_number: str | None = None
@@ -73,6 +83,15 @@ class TrackIdentityCheck(StrictModel):
     reason: str
 
 
+class ObjectTrackingCheck(StrictModel):
+    object_id: int = Field(ge=0, le=15)
+    quality_score: float = Field(ge=0, le=1)
+    identity_preserved: bool
+    role_correct: bool
+    unreliable_from_frame: int | None = Field(None, ge=0)
+    reason: str
+
+
 class Criticism(StrictModel):
     quality_score: float = Field(ge=0, le=1)
     identity_swaps: list[str]
@@ -88,6 +107,7 @@ class Criticism(StrictModel):
     team_roles_preserved: bool | None = None
     role_conflicts: list[str] = Field(default_factory=list)
     player_identity_checks: list[TrackIdentityCheck] = Field(default_factory=list, max_length=14)
+    object_tracking_checks: list[ObjectTrackingCheck] = Field(default_factory=list, max_length=16)
 
 
 class TrackingObject(StrictModel):

@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Users,
   X,
-  ChevronDown,
+  ArrowUpRight,
 } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { useDialogFocus } from "../hooks/useDialogFocus";
@@ -130,7 +130,7 @@ export function WorkspaceShell({
               {data.league.is_demo === false ? "Sleeper NBA" : "Sample league"}
             </small>
           </span>
-          <ChevronDown size={14} />
+          <ArrowUpRight size={14} aria-hidden="true" />
         </button>
         <nav aria-label="Main navigation">
           {nav.map((item) => (
@@ -143,7 +143,12 @@ export function WorkspaceShell({
               <item.icon size={18} />
               <span>{item.label}</span>
               {item.id === "history" && historyCount > 0 && (
-                <span className="nav-count">{historyCount}</span>
+                <span
+                  className="nav-count"
+                  aria-label={`${historyCount} unreviewed ${historyCount === 1 ? "scan" : "scans"}`}
+                >
+                  {historyCount}
+                </span>
               )}
             </button>
           ))}

@@ -18,11 +18,21 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
   const [overlay, setOverlay] = useState(true);
   const trackingAccepted =
     candidate?.tracking_accepted ?? (candidate?.quality ?? 0) >= 0.75;
+  const tracking = candidate?.reviewed_tracking ?? candidate?.tracking;
+  const sceneOnly = candidate?.tracking_review?.scene_only === true;
+  const reviewedObjects = Boolean(
+    candidate?.reviewed_tracking?.frames.some((frame) => frame.objects.length),
+  );
   useEffect(() => {
     setTime(0);
     setPlaying(false);
-    setOverlay(trackingAccepted);
-  }, [candidate?.player.id, candidate?.clip?.id, trackingAccepted]);
+    setOverlay(trackingAccepted || reviewedObjects);
+  }, [
+    candidate?.player.id,
+    candidate?.clip?.id,
+    trackingAccepted,
+    reviewedObjects,
+  ]);
   useEffect(() => {
     if (!playing) return;
     let request: number;
@@ -33,8 +43,10 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
     request = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(request);
   }, [playing]);
-  const tracking = candidate?.tracking;
   const frames = tracking?.frames ?? [];
+  const roles = new Set(
+    frames.flatMap((frame) => frame.objects.map((object) => object.role)),
+  );
   const nearest = frames.length
     ? frames.reduce((a, b) =>
         Math.abs(a.time - time) < Math.abs(b.time - time) ? a : b,
@@ -122,11 +134,25 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
       )}
       <ClipAttempts candidate={candidate} />
       <PlayerIdentity candidate={candidate} />
-      {tracking && !trackingAccepted && (
+      {sceneOnly && (
+        <p className="verification-note" role="status">
+          Visible players are tracked without names. The requested player’s
+          identity is unconfirmed, so these scene tracks do not support their
+          fantasy measurements or a roster move.
+        </p>
+      )}
+      {tracking && !trackingAccepted && !sceneOnly && !reviewedObjects && (
         <p className="verification-note" role="status">
           Tracking needs review ({Math.round((candidate?.quality ?? 0) * 100)}%
           quality). Film measurements were withheld. Overlays are hidden; use
           the eye button to inspect the unreliable tracks.
+        </p>
+      )}
+      {candidate && clip && !frames.some((frame) => frame.objects.length) && (
+        <p className="verification-note" role="status">
+          No reliable player tracks are available for this clip.{" "}
+          {candidate.verification?.reason ??
+            "The clip did not pass the detection and identity checks."}
         </p>
       )}
       <div className="video-wrap">
@@ -194,8 +220,9 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
                       candidate?.identity?.status === "corroborated"
                         ? (candidate.identity.tracked_players.find(
                             (p) => p.object_id === o.id,
-                          )?.name ?? `${o.role.toUpperCase()} ${o.id}`)
-                        : `${o.role.toUpperCase()} ${o.id}`}
+                          )?.name ??
+                          `${o.role === "unknown" ? "PLAYER" : o.role.toUpperCase()} ${o.id}`)
+                        : `${o.role === "unknown" ? "PLAYER" : o.role.toUpperCase()} ${o.id}`}
                     </text>
                     <circle
                       cx={o.centroid[0]}
@@ -212,11 +239,13 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
               {tracking
                 ? tracking.simulated
                   ? "SIMULATED TRACKS"
-                  : trackingAccepted
-                    ? "SAM 3.1 TRACKS"
-                    : overlay
-                      ? "UNRELIABLE TRACKS · FOR INSPECTION"
-                      : "TRACKING WITHHELD"
+                  : reviewedObjects && sceneOnly
+                    ? "SCENE TRACKS · IDENTITY UNCONFIRMED"
+                    : trackingAccepted
+                      ? "SAM 3.1 TRACKS"
+                      : overlay
+                        ? "UNRELIABLE TRACKS · FOR INSPECTION"
+                        : "TRACKING WITHHELD"
                 : "NO ACCEPTED TRACKS"}
             </div>
           </>
@@ -276,24 +305,47 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
         </button>
       </div>
       <div className="film-legend">
-        <span>
-          <i style={{ background: colors.target }} />
-          Target player
-        </span>
-        <span>
-          <i style={{ background: colors.defender }} />
-          Defenders
-        </span>
-        <span>
-          <i style={{ background: colors.ball }} />
-          Basketball
-        </span>
+        {roles.has("target") && (
+          <span>
+            <i style={{ background: colors.target }} />
+            Target player
+          </span>
+        )}
+        {roles.has("defender") && (
+          <span>
+            <i style={{ background: colors.defender }} />
+            Defenders
+          </span>
+        )}
+        {roles.has("ball") && (
+          <span>
+            <i style={{ background: colors.ball }} />
+            Basketball
+          </span>
+        )}
+        {roles.has("unknown") && (
+          <span>
+            <i style={{ background: colors.unknown }} />
+            Unidentified players
+          </span>
+        )}
         <span className="muted">
           {frames.length
             ? `${frames.length} observed frames`
             : "Screen-space tracking"}
         </span>
       </div>
+      {clip && (
+        <p className="tracking-coverage">
+          {roles.has("target") ? "Target tracked" : "Target not identified"}
+          {" · "}
+          {roles.has("defender")
+            ? "Opposing players tracked"
+            : "No confirmed defender tracks"}
+          {" · "}
+          {roles.has("ball") ? "Basketball tracked" : "Basketball not tracked"}
+        </p>
+      )}
       {candidate && !candidate.verified && !candidate.identity && (
         <p className="verification-note">
           {candidate.verification

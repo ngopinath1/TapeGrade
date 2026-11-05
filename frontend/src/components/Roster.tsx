@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LockKeyhole, Search, X } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { Sparkline } from "./Player";
+import { InfoTooltip } from "./InfoTooltip";
 
 export function Roster({
   data,
@@ -82,6 +83,11 @@ export function Roster({
             Protected
           </button>
         </div>
+        <InfoTooltip label="roster filters">
+          All players shows your full roster. Protected shows only players you
+          have marked as never-drop in Guardrails. Search works within either
+          view.
+        </InfoTooltip>
         {onManageProtections && (
           <button className="button subtle" onClick={onManageProtections}>
             Manage protections
@@ -103,15 +109,77 @@ export function Roster({
           </caption>
           <thead>
             <tr>
-              <th scope="col">Player</th>
-              <th scope="col">Position</th>
-              <th scope="col">Min / prev</th>
               <th scope="col">
-                {live ? `PERIOD ${data.league.period ?? "—"} FPTS` : "FPTS"}
+                <span className="column-heading">
+                  Player{" "}
+                  <InfoTooltip label="player">
+                    The player’s name and NBA team on your current roster.
+                  </InfoTooltip>
+                </span>
               </th>
-              {live && <th scope="col">RECENT FPTS / GAME</th>}
-              <th scope="col">{live ? "Observed trend" : "7-game trend"}</th>
-              <th scope="col">Status</th>
+              <th scope="col">
+                <span className="column-heading">
+                  Position{" "}
+                  <InfoTooltip label="position">
+                    The lineup positions this player is eligible to fill in your
+                    league.
+                  </InfoTooltip>
+                </span>
+              </th>
+              <th scope="col">
+                <span className="column-heading">
+                  Min / prev{" "}
+                  <InfoTooltip label="minutes and previous minutes">
+                    {live
+                      ? "Average minutes played in the recent game sample, followed by the average from the five earlier games. A dash means there is not enough recorded data."
+                      : "Current and previous average minutes from the fictional sample. A higher current value suggests a growing role."}
+                  </InfoTooltip>
+                </span>
+              </th>
+              <th scope="col">
+                <span className="column-heading">
+                  {live ? `PERIOD ${data.league.period ?? "—"} FPTS` : "FPTS"}{" "}
+                  <InfoTooltip label="fantasy points">
+                    {live
+                      ? "Fantasy points reported by Sleeper for this scoring period. This is a period total. Local scoring edits in Guardrails apply to recent game averages and future analysis; Sleeper’s reported totals stay as reported."
+                      : "Fantasy points calculated from the fictional sample statistics using your scoring weights in Guardrails."}
+                  </InfoTooltip>
+                </span>
+              </th>
+              {live && (
+                <th scope="col">
+                  <span className="column-heading">
+                    RECENT FPTS / GAME{" "}
+                    <InfoTooltip label="recent fantasy points per game">
+                      Average fantasy points per played game, using your
+                      Guardrails scoring weights and up to five recent recorded
+                      games. The game count (previously n) is the sample size
+                      used for this average. Recorded DNPs are excluded; missing
+                      data can make the average unavailable.
+                    </InfoTooltip>
+                  </span>
+                </th>
+              )}
+              <th scope="col">
+                <span className="column-heading">
+                  {live ? "Recent FPTS trend" : "7-game FPTS trend"}{" "}
+                  <InfoTooltip label="fantasy points trend">
+                    {live
+                      ? "Each point shows one game’s fantasy points from the recent sample, from oldest on the left to newest on the right. Higher means more fantasy points. Each player has their own vertical scale, so compare the shape within a row. At least two scored games are needed."
+                      : "Each point shows fictional fantasy points for one of seven sample games, oldest on the left and newest on the right. Each player has their own vertical scale. Custom scoring hides this trend because the sample has no per-game box scores to recalculate it."}
+                  </InfoTooltip>
+                </span>
+              </th>
+              <th scope="col">
+                <span className="column-heading">
+                  Status{" "}
+                  <InfoTooltip label="player status">
+                    Protected players cannot be recommended as a drop. Other
+                    players show their lineup or injury status when available.
+                    Manage protections in Guardrails.
+                  </InfoTooltip>
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -136,7 +204,7 @@ export function Roster({
                     {p.recent_fantasy_average ?? "—"}
                     <small className="muted">
                       {p.recent
-                        ? ` · n=${p.recent.sample_size}`
+                        ? ` · ${p.recent.sample_size} ${p.recent.sample_size === 1 ? "game" : "games"}`
                         : " · no game logs"}
                     </small>
                   </td>
@@ -144,9 +212,7 @@ export function Roster({
                 <td>
                   <Sparkline
                     values={p.trend}
-                    label={
-                      live ? `${p.trend.length}-game observed trend` : undefined
-                    }
+                    label={`${p.name}: fantasy points, oldest to newest: ${p.trend.join(", ")}`}
                     muted={p.trend.at(-1)! < p.trend[0]}
                   />
                 </td>
@@ -183,18 +249,16 @@ export function Roster({
           </button>
         </div>
       )}
+      <p className="data-note">{data.league.notice}</p>
       <p className="data-note">
-        {data.league.notice}
-        {!live && " Points = PTS + 1.2 REB + 1.5 AST + 3 STL + 3 BLK − TO."}
+        <b>Your scoring weights:</b>{" "}
+        {Object.entries(data.league.scoring?.weights ?? {})
+          .map(([key, value]) => `${key.toUpperCase()} × ${value}`)
+          .join(" · ")}
+        {" · Edit in Guardrails."}
       </p>
       {live && (
         <>
-          <p className="data-note">
-            <b>Your scoring weights:</b>{" "}
-            {Object.entries(data.league.scoring?.weights ?? {})
-              .map(([key, value]) => `${key.toUpperCase()} × ${value}`)
-              .join(" · ")}
-          </p>
           {data.league.points_warning && (
             <p className="data-note">
               Points unavailable: {data.league.points_warning}

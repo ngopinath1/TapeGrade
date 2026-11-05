@@ -1,18 +1,72 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Moon, Sun } from "lucide-react";
 import type { Bootstrap, Guardrails } from "../types";
 import { percent } from "../lib/api";
+import type { Appearance } from "../hooks/useAppearance";
+
+const scoringLabels: Record<string, string> = {
+  pts: "Points",
+  reb: "Rebounds",
+  ast: "Assists",
+  stl: "Steals",
+  blk: "Blocks",
+  to: "Turnovers",
+  turnover: "Turnovers",
+  tov: "Turnovers",
+  tpm: "3-pointers made",
+  tpa: "3-pointers attempted",
+  fg3m: "3-pointers made",
+  fg3a: "3-pointers attempted",
+  fgm: "Field goals made",
+  fga: "Field goals attempted",
+  fgmi: "Field goals missed",
+  ftm: "Free throws made",
+  fta: "Free throws attempted",
+  ftmi: "Free throws missed",
+  tpmi: "3-pointers missed",
+  oreb: "Offensive rebounds",
+  dreb: "Defensive rebounds",
+  pf: "Personal fouls",
+  tf: "Technical fouls",
+  ff: "Flagrant fouls",
+  dd: "Double-doubles",
+  td: "Triple-doubles",
+  bonus_pt_40p: "40+ point bonus",
+  bonus_pt_50p: "50+ point bonus",
+};
 
 export function Settings({
   data,
   onSave,
+  appearance,
+  onAppearance,
 }: {
   data: Bootstrap;
   onSave: (settings: Guardrails) => Promise<void>;
+  appearance: Appearance;
+  onAppearance: (appearance: Appearance) => void;
 }) {
   const [value, setValue] = useState(data.settings);
   const [saving, setSaving] = useState(false);
-  const changed = JSON.stringify(value) !== JSON.stringify(data.settings);
+  const [scoringDraft, setScoringDraft] = useState<Record<string, string>>({});
+  const weights = value.scoring_weights ?? data.league.scoring?.weights ?? {};
+  const scoringKeys = [
+    ...new Set([
+      "pts",
+      "reb",
+      "ast",
+      "stl",
+      "blk",
+      "to",
+      ...Object.keys(weights),
+    ]),
+  ];
+  const changed =
+    JSON.stringify(value) !== JSON.stringify(data.settings) ||
+    Object.entries(scoringDraft).some(
+      ([key, draft]) =>
+        draft !== String(data.league.scoring?.weights[key] ?? 0),
+    );
   return (
     <section className="guardrails-panel settings-panel">
       <div className="settings-toolbar">
@@ -34,6 +88,38 @@ export function Settings({
           </button>
         </div>
       </div>
+      <fieldset className="settings-section">
+        <legend>Appearance</legend>
+        <div className="settings-group">
+          <div className="setting-row appearance-row">
+            <span>
+              Color mode
+              <small>Applies immediately and remembers your choice.</small>
+            </span>
+            <div
+              className="filter-group appearance-control"
+              role="group"
+              aria-label="Color mode"
+            >
+              {(
+                [
+                  { id: "light", label: "Light", icon: Sun },
+                  { id: "dark", label: "Dark", icon: Moon },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={appearance === option.id}
+                  onClick={() => onAppearance(option.id)}
+                >
+                  <option.icon size={15} aria-hidden="true" /> {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </fieldset>
       <form
         id="guardrails-form"
         onSubmit={async (event) => {
@@ -41,6 +127,9 @@ export function Settings({
           setSaving(true);
           try {
             await onSave(value);
+            setScoringDraft({});
+          } catch {
+            // The workspace displays the save error and retains these edits.
           } finally {
             setSaving(false);
           }
@@ -95,6 +184,53 @@ export function Settings({
                 }
               />
             </label>
+          </div>
+        </fieldset>
+        <fieldset className="settings-section">
+          <legend>Fantasy scoring</legend>
+          <p className="settings-description">
+            Set fantasy points awarded per stat. Use negative values for
+            penalties and 0 to ignore a stat.
+            {data.league.is_demo === false &&
+              " These local weights apply to recent game averages and new scans. Sleeper’s league settings and reported period totals are unchanged."}
+            {
+              " Changing scoring withdraws existing staged moves; run a new scan with your saved weights."
+            }
+          </p>
+          <div className="settings-group scoring-grid">
+            {scoringKeys.map((key) => (
+              <label key={key} className="setting-row">
+                <span>
+                  {scoringLabels[key] ?? key.toUpperCase()}
+                  <small>{key.toUpperCase()} · points per stat</small>
+                </span>
+                <input
+                  type="number"
+                  aria-label={`${scoringLabels[key] ?? key.toUpperCase()} scoring weight`}
+                  min="-1000"
+                  max="1000"
+                  step="any"
+                  required
+                  value={scoringDraft[key] ?? weights[key] ?? 0}
+                  onChange={(event) => {
+                    const draft = event.target.value;
+                    setScoringDraft({ ...scoringDraft, [key]: draft });
+                    if (
+                      draft !== "" &&
+                      Number.isFinite(event.target.valueAsNumber)
+                    ) {
+                      setValue({
+                        ...value,
+                        scoring_weights: {
+                          ...weights,
+                          [key]: event.target.valueAsNumber,
+                        },
+                      });
+                    }
+                  }}
+                />
+              </label>
+            ))}
           </div>
         </fieldset>
         <fieldset className="settings-section">

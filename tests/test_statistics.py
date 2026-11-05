@@ -135,6 +135,29 @@ def connect_batch(store, value=None):
     return league, rid
 
 
+def test_local_scoring_recalculates_live_averages_and_survives_roster_refresh(client, store):
+    from backend.services.state import get_league
+
+    original, _ = connect_batch(store)
+    before = client.get("/api/bootstrap").json()
+    saved = {
+        **before["settings"],
+        "scoring_weights": {**before["league"]["scoring"]["weights"], "pts": 2},
+    }
+    assert client.put("/api/settings", json=saved).status_code == 200
+    after = client.get("/api/bootstrap").json()["league"]
+    assert after["roster"][0]["fantasy_points"] == 195
+    assert (
+        after["roster"][0]["recent_fantasy_average"]
+        == before["league"]["roster"][0]["recent_fantasy_average"] + 33
+    )
+    assert after["rules"]["game_mode"] == "lock_in"
+    save_league(original, store)
+    refreshed = get_league(store)
+    assert refreshed["scoring"]["weights"]["pts"] == 2
+    assert refreshed["rules"]["game_mode"] == "lock_in"
+
+
 @pytest.mark.parametrize("points,bonus", [(39, 0), (40, 2), (49, 2), (50, 4), (60, 4)])
 def test_per_game_bonus_stacking(points, bonus):
     stats = dict(pts=points, reb=10, ast=10, stl=0, blk=0)

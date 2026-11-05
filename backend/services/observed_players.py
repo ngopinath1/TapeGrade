@@ -221,6 +221,7 @@ def build_player_profiles(candidate, league, factory=None, clock=None):
         ]
     counts = Counter(b["object_id"] for b in bindings)
     critique = (candidate.get("critiques") or [{}])[-1]
+    review = candidate.get("tracking_review")
     continuity_by_id = {}
     for binding in bindings:
         checks = [
@@ -233,6 +234,10 @@ def build_player_profiles(candidate, league, factory=None, clock=None):
             if checks
             else binding["role"] == "target" and critique.get("target_identity_preserved") is True
         )
+        if review is not None:
+            continuity_by_id[binding["object_id"]] = (
+                binding["object_id"] in review["trusted_object_ids"]
+            )
     trusted_bindings = [
         b for b in bindings if counts[b["object_id"]] == 1 and continuity_by_id[b["object_id"]]
     ]
@@ -265,10 +270,20 @@ def build_player_profiles(candidate, league, factory=None, clock=None):
             and identity.get("status") == "corroborated"
             else 0
         )
+        if review is not None:
+            quality = (
+                review["quality_by_id"].get(str(oid), 0)
+                if continuity and identity.get("status") == "corroborated"
+                else 0
+            )
         metrics = [
             m.model_dump()
             for m in calculate_metrics(
-                scoped_tracking(candidate.get("tracking"), trusted_bindings, oid),
+                scoped_tracking(
+                    candidate.get("reviewed_tracking") or candidate.get("tracking"),
+                    trusted_bindings,
+                    oid,
+                ),
                 quality if quality >= settings.perception_quality_threshold else 0,
             )
         ]
@@ -396,7 +411,9 @@ def add_observed_candidates(candidates, league, guardrails):
                 league, player, guardrails
             )
             scoped = scoped_tracking(
-                original["tracking"], original["identity"]["tracked_players"], profile["object_id"]
+                original.get("reviewed_tracking") or original["tracking"],
+                original["identity"]["tracked_players"],
+                profile["object_id"],
             )
             related = {
                 **original,
@@ -411,6 +428,19 @@ def add_observed_candidates(candidates, league, guardrails):
                 "observed_object_id": profile["object_id"],
             }
             related.pop("identity", None)
+            if original.get("reviewed_tracking") is not None:
+                related["reviewed_tracking"] = scoped.model_dump()
+                related["tracking_review"] = {
+                    **original["tracking_review"],
+                    "scene_only": False,
+                    "target_quality": profile["film"]["quality"],
+                    "roles": {
+                        role: len(
+                            {o.id for f in scoped.frames for o in f.objects if o.role == role}
+                        )
+                        for role in ("target", "defender", "ball", "unknown")
+                    },
+                }
             related["verification"] = {
                 "reason": "Named source-roster player independently checked on this tracking ID.",
                 "confidence": profile["film"]["quality"],

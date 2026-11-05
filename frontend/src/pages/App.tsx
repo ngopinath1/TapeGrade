@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { WorkspaceShell, type Page } from "../components/WorkspaceShell";
 import { SleeperDialog } from "../components/SleeperDialog";
@@ -13,6 +13,7 @@ import type {
   SetupSection,
 } from "../components/ScoutingGuide";
 import { useDashboard } from "../hooks/useDashboard";
+import { useAppearance } from "../hooks/useAppearance";
 import { api, complete } from "../lib/api";
 
 export default function App() {
@@ -27,7 +28,9 @@ export default function App() {
     refresh,
     setScanId,
     reloadScan,
+    markReviewed,
   } = useDashboard();
+  const [appearance, setAppearance] = useAppearance();
   const [page, setPage] = useState<Page>("desk");
   const [instruction, setInstruction] = useState(
     "Find the best available upgrade for my roster.",
@@ -38,6 +41,11 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const scan = savedScan?.id === scanId ? savedScan : null;
+  useEffect(() => {
+    if (page === "desk" && scan && complete(scan.stage) && !scan.reviewed) {
+      void markReviewed(scan);
+    }
+  }, [page, scan?.id, scan?.stage, scan?.attempts, markReviewed]);
   const busy =
     submitting || Boolean(scanId && (!scan || !complete(scan.stage)));
   const goTo = (next: Page) => {
@@ -83,7 +91,10 @@ export default function App() {
       <WorkspaceShell
         data={data}
         page={page}
-        historyCount={history.length}
+        historyCount={
+          history.filter((item) => complete(item.stage) && !item.reviewed)
+            .length
+        }
         onNavigate={goTo}
         onConnect={() => setConnecting(true)}
       >
@@ -161,6 +172,8 @@ export default function App() {
           <Settings
             key={data.league.id}
             data={data}
+            appearance={appearance}
+            onAppearance={setAppearance}
             onSave={async (value) => {
               try {
                 await api("/settings", {
@@ -174,6 +187,7 @@ export default function App() {
                 );
               } catch (e) {
                 setError((e as Error).message);
+                throw e;
               }
             }}
           />

@@ -8,6 +8,13 @@ import fixture from "./fixture.json";
 import type { Candidate, Scan } from "../types";
 
 const scan = fixture.scan as Scan;
+
+async function openSavedScan() {
+  fireEvent.click(await screen.findByRole("button", { name: /Scan history/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(scan.instruction) }),
+  );
+}
 describe("scouting dashboard", () => {
   it("shows empty film without inventing measurements", () => {
     render(<FilmPlayer />);
@@ -115,6 +122,7 @@ describe("scouting dashboard", () => {
       })),
     );
     render(<App />);
+    await openSavedScan();
     await screen.findByText("Film test · stats unavailable");
     expect(screen.getByText("Film review only")).toBeInTheDocument();
     expect(
@@ -446,6 +454,7 @@ it("changes the player film while preserving the scan recommendation", async () 
     })),
   );
   render(<App />);
+  await openSavedScan();
   await screen.findByRole("heading", { name: "Cameron Reed" });
   screen.getByRole("region", { name: "Selected player report" }).scrollTop =
     700;

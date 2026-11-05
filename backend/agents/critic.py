@@ -6,7 +6,14 @@ class PerceptionCritic:
         self.spark = spark
 
     def inspect(
-        self, player_id, attempt, tracking, overlays, seed_objects=None, identity_context=None
+        self,
+        player_id,
+        attempt,
+        tracking,
+        overlays,
+        seed_objects=None,
+        identity_context=None,
+        image_frames=None,
     ):
         return self.spark.reason(
             "critic",
@@ -18,6 +25,12 @@ class PerceptionCritic:
                 "height": tracking.height,
                 "verified_seed_objects": seed_objects or [],
                 "identity_context": identity_context,
+                "image_frames": [
+                    {"image_index": offset + i, "source_frame": f["frame"], "kind": kind}
+                    for offset, kind in ((0, "source"), (len(image_frames or []), "overlay"))
+                    for i, f in enumerate(image_frames or [])
+                ],
+                "object_review_requirements": "Return object_tracking_checks for EVERY seed ID, including unidentified players and ball 15. Judge each object independently: quality_score, identity_preserved (same visible object, not proof of its name), role_correct, reason. Do not lower a correct target's object score because another object drifted. An opposing player must stay on its original opposing jersey; a teammate, referee or empty court is not a defender. Ball 15 must follow the visible basketball, not a hand or logo; correct absence during occlusion is allowed, a stuck box is not. If a track becomes unreliable partway, report unreliable_from_frame using the first inspected source frame showing failure; otherwise null. If identity_context is unconfirmed, all person seeds are unknown scene tracks: never upgrade them to the named target or call them defenders. Missing detections are missing, not fabricated zeros. Keep each reason to one short sentence.",
                 "frames": [
                     f.model_dump() for f in tracking.frames[:: max(1, len(tracking.frames) // 5)]
                 ],

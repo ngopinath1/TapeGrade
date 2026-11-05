@@ -6,7 +6,7 @@ import json
 from sqlalchemy import select
 
 from backend.agents.critic import PerceptionCritic
-from backend.api.types import ClipVerification, ClipIdentityChecks, Tracking
+from backend.api.types import ClipVerification, ClipIdentityChecks, SeedObject, Tracking
 from backend.config import settings
 from backend.db.database import session_scope
 from backend.db.schema import PerceptionLog, SegmentationResult
@@ -15,19 +15,20 @@ from backend.providers.footage import FootageError
 from backend.services.clips import LocalClipProvider, source_key, overlapping_source
 from backend.services.metrics import calculate_metrics
 from backend.services.overlays import create_overlays
+from backend.services.tracking_review import tracking_seeds, reviewed_tracking
 
 
 def verification_payload(player, clip):
     return {
         "player": player,
         "clip": clip,
-        "instruction": "Verify identity only from visible jersey/name/number and supplied context. Reject if identity is uncertain. Return frame-0 seed boxes in source pixels: target id 1, visible opposing defenders id 2+, ball id 15. Never invent unseen objects.",
+        "instruction": "Inspect ALL supplied frames. Separate named identity verification from visible-object detection. Use each object's clearest inspected frame (set its frame field), not necessarily frame 0. Seed named target id 1 only when supported; choose its clearest jersey frame. Seed up to three visible opposing players id 2-14 only when their team is established relative to the confirmed target; teammates, referees and uncertain teams must never be defenders. If the named target cannot be verified, still return up to four clearly visible players with role=unknown and unique ids 1-14. Look explicitly for the basketball across ALL sampled frames, including in a player's hands and in flight; if visibly present, give it reserved id 15, a tight box and its clearest frame. A hand, shoe, logo or inferred hidden ball is not a basketball. Never invent unseen objects. Keep identity verified=false when uncertain, even if visible unknown players can be seeded.",
         "image_frames": [
             {"image_index": i, "source_frame": f["frame"], "time": f["time"]}
             for i, f in enumerate(clip["frames"])
         ],
         "identity_requirements": (
-            "The source roster is context, not visual proof. Read the target's jersey from the actual images: return identity_observations (source frame, jersey_number, team_code, clear/unclear legibility, full-frame source-pixel player box and brief evidence). Include a clear frame-zero read bound to target ID 1 and continuity_frames for at least two supplied frames. Never copy the expected number into an observation when it is not legible. If the number/team is uncertain, set verified=false. For each seed object provide team_code and, only when visibly readable, jersey_number and jersey_readable. Defenders must belong to the opponent; same-team players and referees are not defenders. The ball must have ID 15 and is omitted if not visible. Return only observed people/objects. Do not infer a player's name from face resemblance."
+            "The source roster is context, not visual proof. Read the target's jersey from the actual images: return identity_observations (source frame, jersey_number, team_code, clear/unclear legibility, full-frame source-pixel player box and brief evidence). Include a clear read bound to target ID 1 in its chosen seed frame and continuity_frames for at least two supplied frames. A target absent or unreadable at frame 0 can be verified from a later clear sampled frame plus another continuity frame. Never copy the expected number into an observation when it is not legible. If the number/team is uncertain, set verified=false and return visible people as unknown scene objects instead. For each seed object provide team_code and, only when visibly readable, jersey_number and jersey_readable. Defenders must belong to the opponent; same-team players and referees are not defenders. The ball must have ID 15 and is omitted only when not clearly visible in ANY supplied frame. Return only observed people/objects. Do not infer a player's name from face resemblance."
             if clip.get("public_source")
             else None
         ),
@@ -90,6 +91,14 @@ def analyze_clip(
         )
         candidate["verification"] = verification.model_dump()
         candidate["verified"] = verification.verified and verification.confidence >= 0.75
+        objects = (
+            [o.model_dump() for o in verification.objects]
+            if mock
+            else tracking_seeds(clip, verification, candidate["verified"])
+        )
+        verification = verification.model_copy(
+            update={"objects": [SeedObject.model_validate(o) for o in objects]}
+        )
         if clip.get("public_source"):
             from backend.services.clip_identity import assess_identity
 
@@ -97,25 +106,42 @@ def analyze_clip(
             candidate["verified"] = (
                 candidate["verified"] and candidate["identity"]["status"] == "corroborated"
             )
+        if not mock and not candidate["verified"]:
+            objects = tracking_seeds(clip, verification, False)
+        can_track = candidate["verified"] or (
+            not mock and any(o["role"] == "unknown" for o in objects)
+        )
         if not candidate["verified"]:
             reason = (
                 "; ".join(candidate.get("identity", {}).get("reasons", [])) or verification.reason
             )
-            job.event("VERIFYING", "Muse Spark", f"Clip rejected: {reason}")
-        elif job.remaining_calls() < 3:
+            job.event(
+                "VERIFYING",
+                "Muse Spark",
+                f"Named identity unconfirmed: {reason}"
+                + (
+                    " Tracking visible people without assigning a name or opponent role."
+                    if can_track
+                    else ""
+                ),
+            )
+        if can_track and job.remaining_calls() < 3:
             candidate["footage_notice"] = (
                 "The remaining call budget is reserved for the final report; tracking this clip was not started."
             )
             job.event("VERIFYING", "TapeGrade", candidate["footage_notice"])
-        else:
+        elif can_track:
             prompt = verification.target_description
-            objects = [o.model_dump() for o in verification.objects]
-            if not mock and not any(o["role"] == "target" for o in objects):
+            if (
+                not mock
+                and candidate["verified"]
+                and not any(o["role"] == "target" for o in objects)
+            ):
                 raise ModelError("Verified clip has no target seed box. Add clearer footage.")
             if not mock:
                 from backend.models.sam import seed_prompt
 
-                prompt = seed_prompt(clip, objects)
+                prompt = seed_prompt(clip, objects, require_target=candidate["verified"])
             for attempt in range(job.cp["max_sam_retries"] + 1 if allow_sam_retries else 1):
                 record_attempt = clip_index * (job.cp["max_sam_retries"] + 1) + attempt
                 job.event(
@@ -129,6 +155,7 @@ def analyze_clip(
                     "prompt": prompt,
                     "objects": objects,
                     "mask_encoding": "one_bit",
+                    "tracking_review_version": 3,
                 }
                 track_data = job.cached(
                     settings.sam_model,
@@ -170,6 +197,7 @@ def analyze_clip(
                     [f["url"] for f in clip["frames"]] + overlays,
                     objects,
                     candidate.get("identity"),
+                    clip["frames"],
                 )
                 candidate["critiques"].append(
                     {
@@ -205,15 +233,53 @@ def analyze_clip(
                     tracking=track_data,
                     overlays=overlays,
                 )
+                reviewed, summary = reviewed_tracking(
+                    tracking,
+                    objects,
+                    critique,
+                    candidate["verified"],
+                    verification.confidence,
+                    {f["frame"] for f in clip["frames"]},
+                )
+                if summary is not None:
+                    candidate.update(
+                        reviewed_tracking=reviewed.model_dump(),
+                        tracking_review=summary,
+                        quality=summary["target_quality"],
+                    )
                 if candidate.get("identity"):
                     from backend.services.clip_identity import review_tracking_identity
 
                     if not review_tracking_identity(candidate["identity"], critique):
                         candidate["quality"] = 0
-                accepted = candidate["quality"] >= settings.perception_quality_threshold
+                        if reviewed is not None:
+                            for frame in reviewed.frames:
+                                for obj in frame.objects:
+                                    if obj.role != "ball":
+                                        obj.role = "unknown"
+                            summary["scene_only"] = True
+                            summary["target_quality"] = 0
+                            summary["roles"] = {
+                                role: len(
+                                    {
+                                        o.id
+                                        for f in reviewed.frames
+                                        for o in f.objects
+                                        if o.role == role
+                                    }
+                                )
+                                for role in ("target", "defender", "ball", "unknown")
+                            }
+                            candidate["reviewed_tracking"] = reviewed.model_dump()
+                visible = reviewed or tracking
+                accepted = (
+                    candidate["verified"]
+                    and candidate["quality"] >= settings.perception_quality_threshold
+                    and any(o.role == "target" for f in visible.frames for o in f.objects)
+                )
                 candidate["tracking_accepted"] = accepted
                 retry = (
-                    not accepted
+                    (not accepted or bool(summary and summary["issues"]))
                     and critique.retry_justified
                     and attempt < job.cp["max_sam_retries"]
                     and allow_sam_retries
@@ -248,7 +314,7 @@ def analyze_clip(
         f"Calculating evidence-backed proxies for {player['name']}.",
     )
     tracking = (
-        Tracking.model_validate(candidate["tracking"])
+        Tracking.model_validate(candidate.get("reviewed_tracking") or candidate["tracking"])
         if candidate["tracking"]
         else Tracking(width=1, height=1, fps=1, prompt="", frames=[], simulated=mock)
     )
@@ -396,7 +462,7 @@ def identity_checks(job, spark, player, clips):
         {
             "player": player,
             "clips": evidence,
-            "instruction": "Return exactly one verification for each supplied clip_id. Treat every clip independently, using only its mapped images and dated roster. Source frame 0 restarts for EACH clip. Never transfer jersey readings, coordinates or identity certainty from another clip. Follow each clip's verification and identity requirements. Per clip, return at most two brief identity observations and seed only the target, up to two clearly visible opposing players and a ball if visible. Keep reasons to one sentence; do not infer unreadable jerseys. A rejected clip still needs a verified=false result and a reason.",
+            "instruction": "Return exactly one verification for each supplied clip_id. Treat every clip independently using only its mapped images and dated roster. Source frame indices restart for EACH clip. Never transfer jersey readings, coordinates or identity certainty between clips. Follow each clip's verification and identity requirements, including per-object seed frames. Per clip, return at most three brief identity observations. If named identity is uncertain, keep verified=false but seed clearly visible people as unknown. Explicitly inspect for a visible basketball across each clip's frames and seed id 15 when seen. Keep reasons to one sentence; do not infer unreadable jerseys.",
         },
         ClipIdentityChecks,
         images,
@@ -487,6 +553,7 @@ def scan_player(job, spark, sam, player, mock, provider, discovery, progress):
                     0
                     if verification
                     and (not verification.verified or verification.confidence < 0.75)
+                    and not verification.objects
                     else 2 if verification else 3
                 )
                 if job.remaining_calls() < needed + 1:

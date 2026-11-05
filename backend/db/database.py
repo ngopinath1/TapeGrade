@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, select
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from backend.config import ROOT, settings
@@ -42,7 +42,22 @@ def session_scope(factory=None):
 def initialize(engine_override=None):
     from backend.db import schema  # noqa: F401
 
-    Base.metadata.create_all(engine_override or engine)
+    target = engine_override or engine
+    legacy_reviews = (
+        "scan_runs" in inspect(target).get_table_names()
+        and "scan_reviews" not in inspect(target).get_table_names()
+    )
+    Base.metadata.create_all(target)
+    if legacy_reviews:
+        # Existing reports predate review tracking; avoid presenting the entire archive as new.
+        with sessionmaker(target)() as session:
+            for run in session.scalars(
+                select(schema.ScanRun).where(schema.ScanRun.stage.in_(("COMPLETED", "FAILED")))
+            ):
+                session.add(
+                    schema.ScanReview(scan_id=run.id, signature=f"{run.attempts}:{run.stage}")
+                )
+            session.commit()
     # Additive index for installations that created identity tables before this index.
     for index in schema.PlayerIdentity.__table__.indexes:
         index.create(engine_override or engine, checkfirst=True)

@@ -161,6 +161,15 @@ def test_unreadable_opponents_remain_unnamed(identity_inputs):
     assert out["tracked_players"][1]["name"] is None
 
 
+def test_clear_later_seed_can_confirm_target_without_a_frame_zero_jersey(identity_inputs):
+    p, c, v = deepcopy(identity_inputs)
+    v["objects"][0]["frame"] = 10
+    v["identity_observations"][0]["legibility"] = "unclear"
+    out = assess_identity(p, c, ClipVerification.model_validate(v))
+    assert out["status"] == "corroborated"
+    assert out["evidence"][0]["frame"] == 10
+
+
 def test_context_does_not_bind_a_jersey_to_two_roster_players():
     p, summary = source_context()
     row = summary["boxscore"]["players"][0]["statistics"][0]["athletes"][1]["athlete"]
