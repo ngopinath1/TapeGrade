@@ -45,21 +45,11 @@ fictional sample remains available through Connect Sleeper.
   deterministic limit narrows the model's input to at most 12 supported candidates
   with usable uploaded clips before Spark shortlists the configured scan count.
 
-## Connected Sportradar NBA source
+## Sportradar NBA source
 
-The Sportradar NBA v8 adapter is implemented and connected using the trial key the
-user supplied. The key is stored only in the ignored backend `.env`, with owner-only
-file permissions. The existing Meta credential was preserved; no account, trial or
-subscription was created by the app. Public status exposes key presence only.
-
-The first successful complete import covers **October 29–November 4, 2026**:
-39 closed games, 1,367 player observations and 527 athletes. Exact recent coverage
-supports 100 free agents and 6 rostered players; other players are explicitly
-unavailable or have fewer than three observed games. Six supported roster players
-are possible comparison subjects, not automatic drop recommendations. Period points
-remain separate. The complete network refresh used 38 requests plus two cache hits;
-subsequent DNP normalization reused all 39 game receipts with zero network requests.
-No Meta inference or fantasy transaction occurred during this connection.
+The Sportradar NBA v8 adapter accepts a locally configured key in the ignored
+backend `.env`. Public status exposes key presence only. Obtain appropriate
+provider access separately; the app does not create accounts or subscriptions.
 
 Configuration for a bounded trial refresh:
 
@@ -73,7 +63,7 @@ STATS_TIMEOUT_SECONDS=180
 SPORTRADAR_MIN_INTERVAL_SECONDS=4
 ```
 
-The actual key is already present locally; do not replace it with the blank example.
+Never overwrite an existing key with the blank template value.
 Restart API and worker after changing configuration. Refresh through League setup.
 The request-count and time limits are saved on each queued job, including provider,
 access level and pacing. No secrets enter the job checkpoint.
@@ -89,9 +79,8 @@ logged. Successful response bodies are hashed and cached with original observati
 times and source references.
 
 Trial calls use a conservative four-second gap after each response completes.
-The initially faster profiles encountered 429s; each attempt stopped without an
-HTTP retry or partial snapshot replacement. Their failed refresh records remain in
-SQLite. The slower bounded refresh completed. Cached schedules expire after ten
+Rate-limit failures stop without an automatic HTTP retry or partial snapshot
+replacement. Cached schedules expire after ten
 minutes; closed-game receipts are rechecked after ten minutes (four hours for older
 games) when an explicit refresh needs them. Scans reuse persisted logs.
 
@@ -130,11 +119,10 @@ requires authoritative or known-game evidence. League setup records `stack`,
 [Sleeper's format guide](https://support.sleeper.com/en/articles/4644860-league-formats-game-modes)
 explains one counted game per player per week in Lock-In. The app compares per-game
 scores; it does not multiply them by scheduled games for weekly value. The actual
-connection reports raw `game_mode=1` and `waiver_type=0`; these numeric enums are
-not decoded globally. The league owner confirmed Lock-In, FAAB with a $100 season
-budget, and stacking 40/50-point bonuses in this chat on November 4. These are now
-saved as source-backed, league-specific rules. A returned $100 budget does not prove
-FAAB applies. [Sleeper's waiver guide](https://support.sleeper.com/en/articles/4678615-how-do-faab-and-waivers-work)
+connection's numeric enums are not decoded globally. Confirm the league's game
+mode, waiver type, season budget and bonus rules in League setup with source
+references. A returned budget alone does not establish that FAAB applies.
+[Sleeper's waiver guide](https://support.sleeper.com/en/articles/4678615-how-do-faab-and-waivers-work)
 describes the distinction between bidding and priority waivers.
 
 Protections are optional user overrides selected in Autopilot. An empty list does
@@ -172,12 +160,10 @@ object ID while retaining target/defender/ball roles. They must refer to an insp
 frame and pass bounds checks. Multi-object tracking never follows a target-only
 concept retry that would lose those bindings. Numeric metrics still require at
 least 75% quality; ADD also requires verified identity, measured references and the
-saved confidence threshold. The earlier genuine 55% result remains ineligible.
+saved confidence threshold. Rejected tracks remain ineligible regardless of other evidence.
 
-A four-second **provisional**, unverified Sam Hauser excerpt is prepared from the
-user-provided local video at source 58–62 seconds. Its game date and season are
-unknown. It has not been sent to Spark or SAM and cannot yet support an ADD. The
-full 20-minute source remains local. Do not confuse this with verified named film.
+A provisional upload with an unknown player identity, date or season cannot
+support an ADD. Source footage stays local and is not included in the repository.
 
 The offline real-league contract test first proves synthetic statistics are blocked,
 then uses an explicit test-only snapshot patch to exercise all three actual HTTP
@@ -192,13 +178,13 @@ TAPEGRADE_CONTRACT_ARTIFACT_DIR="$PWD/data/cache/contract-scan" \
 
 Artifacts: ignored `data/cache/contract-scan/tapegrade-offline-contract.png` and
 `evidence.json`, referenced media and `tapegrade-offline-contract.zip`. The evidence
-includes both players’ normalized game rows and the actual retry prompts. `live-readiness.json` records the actual local API's HTTP 409,
-missing prerequisites, current limits, and zero new jobs/model calls.
+includes both fixture players' normalized game rows and retry prompts. Do not
+commit exports of a real league: they can reveal membership and provider data.
 
 The live profile remains one candidate, five seconds, six maximum calls, zero SAM
 retries and scheduling off. One retry requires two more calls; do not silently
 expand the budget. The genuine recommendation test still requires verified named film and current
-player availability/lock evidence. Statistics and the owner-confirmed rules are connected.
+player availability/lock evidence and source-backed scoring rules.
 
 Every completed scan exposes a PNG attachment and a JSON evidence download containing
 the frozen checkpoint, source rows, results, events and model-call ledger. Low-quality
@@ -209,15 +195,10 @@ validated current NBA recommendations.
 
 ## Source access and evidence
 
-The user obtained NBA trial access through [Sportradar Marketplace](https://marketplace.sportradar.com/signup).
-Its [account guide](https://developer.sportradar.com/getting-started/docs/your-account)
-lists default trials of 30 days, 1,000 requests and one request per second; actual
-entitlements remain account-specific. Authentication and 2026 regular-season
-coverage were verified with real API receipts before the complete import.
+Obtain source access through the provider's official account process. Entitlements,
+request quotas, allowed uses and data redistribution rights are account-specific.
+The code license does not grant a subscription or rights to provider response data.
 
-Ignored `data/cache/sportradar/connection-report.json` records the normalized
-roster/free-agent comparisons, window, provenance IDs, request audit, earlier rate
-limit stops and zero new model calls. `live-job.json` identifies the source fetch
-and cache-only normalization jobs. Raw API bodies are under
-`data/cache/stats/sportradar/`; the pre-import SQLite backup is under
-`data/cache/sportradar/`. The genuine 55% film result is still ineligible for ADD.
+Provider receipts and audit reports are kept in ignored `data/cache/`. Connection
+identifiers, real-league snapshots, source receipts and SQLite backups are runtime
+data. Review evidence exports before sharing them.

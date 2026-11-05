@@ -1,0 +1,19 @@
+Your box score tells you what happened. TapeGrade helps you scout the next opportunity, inspect the film, and review a move for your roster.
+
+Connect your Sleeper league to bring in your roster and scoring. Recent game logs show sourced fantasy averages and minutes, with missing data called out. League setup keeps scoring rules, player identities, and transaction eligibility open for review.
+
+For the complete walkthrough, I'm switching to a fictional sample with simulated models. I ask, “Find me an undervalued guard.” TapeGrade builds a shortlist and a report for each candidate.
+
+Here's Cameron. I can play the clip, scrub through it, and toggle the player, defender, and ball overlays. The tracking audit explains how the evidence was checked. In this simulated example, the first pass swaps identities and scores forty-six percent. The critic specifies the cream jersey, number four, and requests another tracking pass. The corrected result reaches ninety-one percent. SAM tracks the scene; Muse Spark checks the evidence and reasons about the decision.
+
+Cameron's sample report shows defender distance in screen pixels and seventy-five percent ball proximity. The methodology and source frames are inspectable. These are limited film proxies; unsupported measurements stay unavailable. Cameron earns ADD, Jalen MONITOR, and Nico PASS. The sample move is Cameron for Theo, at eight dollars.
+
+I can bookmark Jalen for follow-up, copy the move summary, and download a Tape Card plus the evidence JSON. Cards combine artwork with exact report text and measurements. Muse Image supplies artwork in supported live runs; this sample artwork is simulated.
+
+My rules still decide what clears review: minimum confidence, a maximum bid, scoring weights, and protected players. Watch what happens when I protect Theo and save. The existing recommendation is withdrawn immediately. TapeGrade stages the decision for review. I make any actual roster move in Sleeper.
+
+The film library accepts player-linked clips. History keeps reports searchable. Appearance supports light and dark, and local scheduling is available when its worker is enabled and the Mac stays awake.
+
+This saved real scan checked two excerpts, corroborated Hauser's identity, and surfaced player-specific statistics. Tracking remained too weak, so measurements and a move were withheld. The evidence determines the outcome.
+
+TapeGrade. Scout the opportunity. Inspect the evidence. Make the call.

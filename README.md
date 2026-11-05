@@ -8,6 +8,10 @@ Built for the Meta Global AI Developer Hackathon, Indie Developer track.
 
 ![TapeGrade dashboard](docs/dashboard.jpg)
 
+TapeGrade runs locally for one user. The API rejects remote clients and untrusted
+browser origins. Keep both servers on loopback and do not expose them through a
+proxy or tunnel. See [security and hosting boundaries](SECURITY.md).
+
 ## Start here
 
 The normal workflow is **connect your league → run a live scan → review the report**.
@@ -37,9 +41,8 @@ or downloaded sports footage. It uses **fictional players and statistics**, orig
 procedural basketball footage, and deterministic simulated model responses.
 
 The actual Meta clients are implemented and covered by **offline HTTP contract
-tests**. The initial build used no paid inference. See `PROGRESS.md` for subsequent
-explicitly authorized live checks. Permitted video input is required for a full
-three-model live scan.
+tests**. See `PROGRESS.md` for implementation status and validation boundaries.
+Permitted video input is required for a full three-model live scan.
 
 ### macOS prerequisites
 
@@ -524,9 +527,9 @@ offline tests and smoke script.
 reasoning, tracks, identity swap and correction, and card artwork. Labels remain
 visible. A connected Sleeper roster remains actual provider data even with mock
 models; it cannot be scanned with fabricated statistics. Switching models to live
-does not add the missing recent box-score feed.
+does not configure a statistics-provider account or grant footage rights.
 
-**Not included:** a recent NBA box-score/statistics feed for live recommendations, official NBA tracking metrics,
+**Not included:** provider subscriptions, validated prediction accuracy, official NBA tracking metrics,
 reliable shot/defensive action detection, category scoring, public hosting,
 authentication/multi-user isolation, Modal deployment, external notifications,
 YouTube discovery/downloads, and real transactions. `YOUTUBE_API_KEY` is reserved;
@@ -534,8 +537,8 @@ no YouTube API is called. This is a localhost single-user application; do not bi
 it publicly without adding authentication, upload hardening and deployment controls.
 
 Next engineering steps: validate a rights-cleared real-film set on your Meta
-account, benchmark identity continuity and mask quality, add a licensed statistics
-provider, calibrate camera geometry, implement robust action features, introduce
+account, benchmark identity continuity and mask quality, validate statistics
+coverage, calibrate camera geometry, implement robust action features, introduce
 schema migrations, and deploy a durable worker only after local validation.
 
 ## 2–3 minute hackathon demonstration
@@ -564,7 +567,7 @@ Show ADD Cameron / DROP Theo / $8 and “Awaiting your tap.”
 the staged transaction is withdrawn. Describe confidence and FAAB caps and the
 absence of any transaction submission endpoint. For connected leagues, open League setup
 and show the separate period/average fields, source coverage and unresolved rule evidence.
-The real scan stays blocked until those prerequisites are satisfied.
+Unknown eligibility permits a scouting report but blocks an ADD or staged move.
 
 **2:25–2:50 — Share the insight.** Download the Tape Card. In live mode Muse Image
 supplies artwork for supported outcomes; low-quality normal reports use a local card.
@@ -572,12 +575,6 @@ Download the evidence JSON to show frozen source rows and the call ledger. The s
 offline contract card is visibly labeled synthetic; the earlier genuine 55% film
 diagnostic is not an ADD. Pillow ensures exact names and verified numbers. End with
 the three roles: SAM perceives, Spark checks and decides, Image communicates.
-
-Submission deadline supplied for this project: **November 4, 2026, 9:00 PM ET**.
-Credentials, Spark structured output, actual SAM masks and Muse Image artwork were
-verified on November 3. Reserve time before the deadline for broader footage
-validation and a supported statistics provider; real fantasy recommendations remain
-unverified beyond the offline fixtures and complete mock demonstration.
 
 ### Recent NBA logs and League setup
 
@@ -587,22 +584,24 @@ roster players and free agents. Exact scoring and readiness are computed from sa
 source evidence; period totals remain separately labeled. Live staging validates
 protections, eligibility/locks and position fit, and supports moves without FAAB.
 
-Sportradar NBA v8 is now connected to the supplied trial key through the ignored
-backend environment. The first real seven-day import contains 39 closed games and
-1,367 player observations. Shared Sportradar IDs connect the athletes to Sleeper;
-exact recent coverage supports 100 free agents and 6 roster players. Short samples,
-DNPs, unknown participation and missing foul fields remain explicit gaps.
+The Sportradar NBA v8 adapter uses shared athlete identifiers to join Sleeper
+records. Statistics requests have bounded windows, request counts, timeouts and
+pacing. Short samples, DNPs, unknown participation and missing foul fields remain
+explicit gaps. Configure access locally; no account or trial is supplied.
 
-The owner confirmed Lock-In, a $100 FAAB season budget and stacking 40/50-point
-bonuses. Protections are optional frontend overrides. The data refresh respects a
-60-request cap, three-minute timeout and four-second post-response pacing, and
-reuses cached source receipts. Scans can produce scouting reports while transaction
-eligibility is unknown. ADD verdicts and add/drop recommendations require current
-eligibility/lock evidence and verified named film at the quality threshold. League
-setup separates **Refresh Sleeper roster** from **Refresh game logs** and explains
-how to review the free agent and rostered drop. The
-existing 55% film result cannot support ADD. See
+League setup records the league's confirmed game mode, waiver type, budget and
+bonus rules. Protections are optional overrides. Scans can produce reports while
+transaction eligibility is unknown; ADD verdicts and staged moves require current
+eligibility/lock evidence and verified named film. **Refresh Sleeper roster** and
+**Refresh game logs** are separate controls. See
 [statistics setup and current limitations](docs/STATISTICS.md).
 
 Completed reports now download both a Tape Card PNG and auditable evidence JSON.
 The offline contract demonstration is labeled synthetic and uses zero paid requests.
+
+## License and third-party materials
+
+The source code and original repository assets are available under the [MIT license](LICENSE).
+Third-party dependencies retain their own licenses. Sports footage, statistics
+feeds, publisher videos, team marks and user uploads retain their owners' rights;
+they are not included in this license. The screenshots show the fictional demo.

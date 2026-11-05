@@ -2,17 +2,9 @@
 
 Reviewed November 3, 2026 (America/New_York).
 
-The live credential check succeeded and all three Meta models are listed for the
-configured key. One explicit Spark test used 700 tokens. No further Meta inference
-is needed to discover or prepare these sources.
-
-Later that day the user supplied a separate local highlight video. A four-second
-excerpt completed actual Spark verification, SAM segmentation, Spark criticism and
-Muse Image artwork generation. Six new requests were used across the rejected
-first excerpt and final diagnostic, including one failed critic response. The
-critic scored tracking at 55%, so numerical film metrics were withheld. These
-requests did not use the archival samples or scrape the ESPN/social links below.
-See `PROGRESS.md` for the verified results and limitations.
+These references describe source provenance and access boundaries. They do not
+supply current-season video rights or establish model accuracy. Source downloads,
+private verification results, and footage stay outside Git.
 
 ## Short archival samples with listed reuse licenses
 

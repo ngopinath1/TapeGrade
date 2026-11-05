@@ -10,6 +10,7 @@ from backend.services.state import seed_demo
 from backend.services.state import get_league
 from backend.api.routes import router
 from backend.api.stats import router as stats_router
+from backend.security import LOCAL_ORIGINS, LocalOnlyMiddleware
 
 
 @asynccontextmanager
@@ -22,10 +23,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TapeGrade API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=sorted(LOCAL_ORIGINS),
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Idempotency-Key"],
 )
+app.add_middleware(LocalOnlyMiddleware)
 app.include_router(router)
 app.include_router(stats_router)
 for directory in ("cache", "uploads", "samples"):

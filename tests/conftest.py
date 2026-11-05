@@ -67,5 +67,5 @@ def client(store):
         path = settings.data_dir / folder
         path.mkdir(exist_ok=True)
         app.mount("/media/" + folder, StaticFiles(directory=path), name=folder)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost:8000", client=("127.0.0.1", 50000)) as client:
         yield client
