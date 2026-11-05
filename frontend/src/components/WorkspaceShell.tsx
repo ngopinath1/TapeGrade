@@ -8,7 +8,10 @@ import {
   ShieldCheck,
   Users,
   X,
-  ArrowUpRight,
+  ChevronsUpDown,
+  CircleHelp,
+  Shield,
+  ScanLine,
 } from "lucide-react";
 import type { Bootstrap } from "../types";
 import { useDialogFocus } from "../hooks/useDialogFocus";
@@ -107,6 +110,9 @@ export function WorkspaceShell({
       >
         <div className="sidebar-heading">
           <button className="brand" onClick={() => navigate("desk")}>
+            <span className="brand-mark" aria-hidden="true">
+              <ScanLine size={19} />
+            </span>
             TapeGrade
           </button>
           {compact && (
@@ -124,13 +130,16 @@ export function WorkspaceShell({
           onClick={connect}
           aria-label={`Change league: ${data.league.name}`}
         >
+          <span className="league-avatar" aria-hidden="true">
+            {data.league.name.slice(0, 1).toUpperCase()}
+          </span>
           <span>
             <strong>{data.league.name}</strong>
             <small>
               {data.league.is_demo === false ? "Sleeper NBA" : "Sample league"}
             </small>
           </span>
-          <ArrowUpRight size={14} aria-hidden="true" />
+          <ChevronsUpDown size={13} aria-hidden="true" />
         </button>
         <nav aria-label="Main navigation">
           {nav.map((item) => (
@@ -159,8 +168,12 @@ export function WorkspaceShell({
           target="_blank"
           rel="noreferrer"
         >
-          API reference
+          <CircleHelp size={15} /> API reference
         </a>
+        <div className="sidebar-footer">
+          <Shield size={14} />
+          <span>Every move. Your call.</span>
+        </div>
       </aside>
       <div
         className="main-shell"
@@ -186,7 +199,15 @@ export function WorkspaceShell({
             </h1>
           </div>
           <div className="top-actions">
-            <span className="mode-pill">
+            <span className="topbar-league">
+              {data.league.name}
+              <span> / </span>
+              {data.league.is_demo === false ? "Sleeper NBA" : "Sample league"}
+            </span>
+            <span
+              className={`mode-pill ${data.models_mode === "live" ? "is-live" : ""}`}
+            >
+              <i />
               {data.models_mode === "mock" ? "Demo models" : "Live models"}
             </span>
             <button

@@ -47,7 +47,6 @@ export function ScanProgress({ scan }: { scan: Scan | null }) {
     0,
     phases.findIndex((p) => p.stages.includes(scan?.stage ?? "QUEUED")),
   );
-  const progress = scan?.progress ?? 0;
   const switchEvent = scan?.events
     ?.filter((e) => e.stage === "SWITCHING_CLIPS")
     .at(-1);
@@ -68,17 +67,14 @@ export function ScanProgress({ scan }: { scan: Scan | null }) {
               : "You can visit other pages. Your report will be saved in Scan history."}
           </p>
         </div>
-        <strong>{progress}%</strong>
       </div>
       <div
         className="scan-progress"
         role="progressbar"
         aria-label="Scouting progress"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progress}
+        aria-valuetext={phases[active].label}
       >
-        <i style={{ width: `${progress}%` }} />
+        <i className="indeterminate-progress" />
       </div>
       <ol className="scan-phases">
         {phases.map((phase, index) => (

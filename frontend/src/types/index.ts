@@ -12,6 +12,7 @@ export type Player = {
   is_demo: boolean;
   film_only?: boolean;
   external_id?: string;
+  nba_id?: string | number | null;
   lineup_status?: string;
   injury_status?: string | null;
   stats: Record<string, number>;

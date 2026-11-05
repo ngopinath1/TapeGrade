@@ -1,5 +1,7 @@
 import type { Ref } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Crosshair, Loader2, ShieldCheck } from "lucide-react";
+import { Avatar } from "./Player";
+import { fantasyAverage } from "../lib/presentation";
 import type { Bootstrap } from "../types";
 import {
   ScoutingGuide,
@@ -35,6 +37,11 @@ export function ScoutingRequest({
       className={`mission-panel ${hasReport ? "mission-inline" : "mission-welcome"}`}
       aria-label="New scouting report"
     >
+      {!hasReport && (
+        <div className="mission-emblem" aria-hidden="true">
+          <Crosshair size={25} strokeWidth={1.3} />
+        </div>
+      )}
       <div className="mission-intro">
         <p className="workspace-context">
           <button onClick={() => onNavigate("roster")}>
@@ -142,12 +149,43 @@ export function ScoutingRequest({
         </details>
       )}
       <p id="scan-expectation" className="mission-provenance">
+        <ShieldCheck size={13} />
         {simulated
           ? "Demo report · fictional players and simulated models · no credits used."
           : data.models_mode === "mock"
             ? "Live analysis is unavailable for this league in the current environment."
             : `Live analysis · up to ${data.limits.live_calls} model calls per scan.`}
       </p>
+      {!hasReport && data.league.roster.length > 0 && (
+        <div className="welcome-roster">
+          <div className="welcome-roster-heading">
+            <h3>Your roster at a glance</h3>
+            <button className="text-link" onClick={() => onNavigate("roster")}>
+              View roster
+              <ArrowRight size={13} />
+            </button>
+          </div>
+          <div className="welcome-roster-list">
+            {data.league.roster.slice(0, 3).map((player) => (
+              <div className="welcome-roster-player" key={player.id}>
+                <Avatar player={player} small />
+                <span>
+                  <strong>{player.name}</strong>
+                  <small>
+                    {player.team} · {player.positions.join(" / ")}
+                  </small>
+                </span>
+                <span className="welcome-points">
+                  {fantasyAverage(player)?.toFixed(1) ?? "—"}
+                  <small>
+                    {player.is_demo === false ? "FPTS / game" : "Sample FPTS"}
+                  </small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

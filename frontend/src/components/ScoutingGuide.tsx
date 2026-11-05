@@ -23,9 +23,7 @@ export function ScoutingGuide({
     const workflow = data.workflow;
     return (
       <section className="scouting-guide" aria-labelledby="guide-title">
-        <span className="section-label">
-          {real ? "LIVE SCOUTING" : "START WITH YOUR LEAGUE"}
-        </span>
+        <span className="section-label">THE FILM ADVANTAGE</span>
         <h2 id="guide-title">
           {real
             ? workflow.can_start
@@ -35,7 +33,7 @@ export function ScoutingGuide({
         </h2>
         <p>
           {real
-            ? "Each scan refreshes your roster, updates recent scores, finds matching footage and checks the evidence before building your report."
+            ? "Find an upgrade with recent scores, player film, and your league’s rules in view."
             : "Connect Sleeper once. TapeGrade refreshes your league and searches for player footage when you scan."}
         </p>
         {!real && (
@@ -55,13 +53,16 @@ export function ScoutingGuide({
           </ul>
         )}
         {real && (
-          <p className="guide-note">
-            Real API analysis · up to {data.limits.live_calls} model calls per
-            scan.{" "}
-            {workflow.public_footage_analysis_enabled
-              ? "Recent public ESPN clips are imported automatically when a player match is available. Identity and tracking are checked before the footage supports a verdict."
-              : "Footage is used only when processing is permitted; missing evidence stays visible in the report."}
-          </p>
+          <details className="guide-note">
+            <summary>What happens during a scan?</summary>
+            <p>
+              Real API analysis · up to {data.limits.live_calls} model calls per
+              scan.{" "}
+              {workflow.public_footage_analysis_enabled
+                ? "Recent public ESPN clips are imported automatically when a player match is available. Identity and tracking are checked before the footage supports a verdict."
+                : "Footage is used only when processing is permitted; missing evidence stays visible in the report."}
+            </p>
+          </details>
         )}
       </section>
     );

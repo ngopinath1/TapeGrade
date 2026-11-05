@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Eye, EyeOff, Maximize2, Pause, Play } from "lucide-react";
+import {
+  Crosshair,
+  Eye,
+  EyeOff,
+  Film,
+  Maximize2,
+  Pause,
+  Play,
+} from "lucide-react";
 import type { Candidate } from "../types";
 import { PlayerIdentity } from "./PlayerIdentity";
 import { IdentifiedPlayers } from "./IdentifiedPlayers";
@@ -69,11 +77,12 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
     <section className="film-panel">
       <div className="film-title">
         <div>
-          <h2>{candidate?.player.name ?? "Player film"}</h2>
+          <h3>
+            <Film size={16} /> Film room
+          </h3>
           <p>
-            {candidate
-              ? `${candidate.player.team}${candidate.player.number === null ? "" : ` · #${candidate.player.number}`} · ${candidate.player.positions.join(" / ")}`
-              : "Run a scan to open the film report."}
+            {candidate?.player.name ?? "Player film"} · Source footage &
+            tracking
           </p>
         </div>
         <span
@@ -92,17 +101,6 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
                 : "No player selected"}
         </span>
       </div>
-      {candidate && (
-        <div className="player-assessment">
-          <p>{candidate.verdict.rationale}</p>
-          <span>
-            {Math.round(candidate.verdict.confidence * 100)}% verdict confidence
-            {candidate.player.minutes !== null &&
-              candidate.player.previous_minutes !== null &&
-              ` · ${candidate.player.minutes - candidate.player.previous_minutes >= 0 ? "+" : ""}${(candidate.player.minutes - candidate.player.previous_minutes).toFixed(1)} minutes vs. previous`}
-          </span>
-        </div>
-      )}
       <div className="film-source">
         {tracking?.simulated
           ? "Original schematic film · simulated tracking"
@@ -132,8 +130,6 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
             : ""}
         </p>
       )}
-      <ClipAttempts candidate={candidate} />
-      <PlayerIdentity candidate={candidate} />
       {sceneOnly && (
         <p className="verification-note" role="status">
           Visible players are tracked without names. The requested player’s
@@ -163,7 +159,8 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
               ref={video}
               src={clip.url}
               playsInline
-              preload="auto"
+              preload="metadata"
+              poster={clip.frames[0]?.url}
               muted
               onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
               onPlay={() => setPlaying(true)}
@@ -382,6 +379,13 @@ export function FilmPlayer({ candidate }: { candidate?: Candidate }) {
           </div>
         )}
       </div>
+      {candidate && (candidate.identity || candidate.clip_attempts?.length) && (
+        <details className="film-evidence-disclosure">
+          <summary>Verification & film notes</summary>
+          <PlayerIdentity candidate={candidate} />
+          <ClipAttempts candidate={candidate} />
+        </details>
+      )}
       <IdentifiedPlayers profiles={candidate?.identified_players} />
       {candidate && (
         <details className="method-note">

@@ -124,7 +124,9 @@ describe("scouting dashboard", () => {
     render(<App />);
     await openSavedScan();
     await screen.findByText("Film test · stats unavailable");
-    expect(screen.getByText("Film review only")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("heading", { name: "Film review only" }),
+    ).not.toHaveLength(0);
     expect(
       screen.getByText(
         /Game date, fantasy eligibility and statistics are unverified/,

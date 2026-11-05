@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, ChevronDown, RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  ChevronDown,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 import type { Bootstrap, Scan } from "../types";
+import { PlayerOverview } from "../components/PlayerOverview";
 import { Candidates } from "../components/Candidates";
 import { FilmPlayer } from "../components/FilmPlayer";
 import { Recommendation } from "../components/Recommendation";
@@ -66,19 +73,24 @@ export function ScoutingDesk({
   const provenance = scan?.result?.film_test
     ? "Film diagnostic · game date and fantasy statistics unverified"
     : data.league.is_demo === false
-      ? "Sleeper NBA · sourced game logs required"
+      ? candidates.some((candidate) => candidate.player.recent?.games.length)
+        ? "Sleeper NBA · sourced game logs"
+        : "Sleeper NBA · statistics unavailable"
       : (scan?.mode ?? data.models_mode) === "mock"
         ? "Demo report · fictional players and simulated models"
         : "Live model report · fictional sample league statistics";
   return (
     <>
       {!automatic && scan?.result && (
-        <ScanReadiness
-          data={data}
-          onSetup={() =>
-            onNavigate(data.league.is_demo === false ? "data" : "library")
-          }
-        />
+        <details className="report-readiness">
+          <summary>League readiness & restrictions</summary>
+          <ScanReadiness
+            data={data}
+            onSetup={() =>
+              onNavigate(data.league.is_demo === false ? "data" : "library")
+            }
+          />
+        </details>
       )}
       {!automatic &&
         data.league.is_demo === false &&
@@ -95,6 +107,7 @@ export function ScoutingDesk({
       {scan?.result && (
         <div className="report-toolbar">
           <div>
+            <span className="report-eyebrow">SCOUTING REPORT</span>
             <h2>{scan.instruction}</h2>
             <p>
               {new Date(scan.created_at).toLocaleString(undefined, {
@@ -116,6 +129,7 @@ export function ScoutingDesk({
                 requestAnimationFrame(() => input.current?.focus());
             }}
           >
+            <Plus size={14} />
             {missionOpen ? "Close new scan" : "Start another scan"}
           </button>
         </div>
@@ -190,46 +204,94 @@ export function ScoutingDesk({
             aria-label="Selected player report"
             tabIndex={0}
           >
-            {current && !current.clip ? (
-              <section className="footage-evidence">
-                <h2>No footage analyzed for {current.player.name}</h2>
-                <p>
-                  {current.footage_notice ??
-                    "No permitted clip was available. Film measurements and film-backed add recommendations are withheld."}
-                </p>
-                {Boolean(current.footage_sources?.length) && (
-                  <>
-                    <h3>Footage found on the publisher’s site</h3>
-                    <p>
-                      Viewing links only. These clips were not downloaded or
-                      analyzed.
-                    </p>
-                    <ul>
-                      {current.footage_sources!.map((source) => (
-                        <li key={source.url}>
-                          <a href={source.url} target="_blank" rel="noreferrer">
-                            {source.title}
-                            <ArrowUpRight size={13} />
-                          </a>
-                          <small>
-                            {source.publisher} · {source.game_date}
-                          </small>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
+            {current && (
+              <nav
+                className="player-section-nav"
+                aria-label="Player report sections"
+              >
                 <button
-                  className="button"
-                  onClick={() => onNavigate("library")}
+                  onClick={() =>
+                    document
+                      .getElementById("selected-player-overview")
+                      ?.scrollIntoView({ block: "start" })
+                  }
                 >
-                  Add permitted footage
-                  <ArrowRight size={14} />
+                  Overview
                 </button>
-              </section>
-            ) : current ? (
-              <FilmPlayer candidate={current} />
-            ) : null}
+                <button
+                  onClick={() =>
+                    document
+                      .getElementById("selected-player-film")
+                      ?.scrollIntoView({ block: "start" })
+                  }
+                >
+                  Film room
+                </button>
+                <button
+                  onClick={() =>
+                    document
+                      .getElementById("recommendation-title")
+                      ?.scrollIntoView({ block: "start" })
+                  }
+                >
+                  Roster decision
+                </button>
+              </nav>
+            )}
+            {current && (
+              <PlayerOverview
+                key={current.player.id}
+                candidate={current}
+                saved={data.watchlist.includes(current.player.id)}
+                onWatch={() => void onWatch(current.player.id)}
+              />
+            )}
+            <div id="selected-player-film">
+              {current && !current.clip ? (
+                <section className="footage-evidence">
+                  <h2>No footage analyzed for {current.player.name}</h2>
+                  <p>
+                    {current.footage_notice ??
+                      "No permitted clip was available. Film measurements and film-backed add recommendations are withheld."}
+                  </p>
+                  {Boolean(current.footage_sources?.length) && (
+                    <>
+                      <h3>Footage found on the publisher’s site</h3>
+                      <p>
+                        Viewing links only. These clips were not downloaded or
+                        analyzed.
+                      </p>
+                      <ul>
+                        {current.footage_sources!.map((source) => (
+                          <li key={source.url}>
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {source.title}
+                              <ArrowUpRight size={13} />
+                            </a>
+                            <small>
+                              {source.publisher} · {source.game_date}
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  <button
+                    className="button"
+                    onClick={() => onNavigate("library")}
+                  >
+                    Add permitted footage
+                    <ArrowRight size={14} />
+                  </button>
+                </section>
+              ) : current ? (
+                <FilmPlayer candidate={current} />
+              ) : null}
+            </div>
             <Recommendation scan={scan} onToast={onToast} />
             <details className="audit-disclosure">
               <summary>

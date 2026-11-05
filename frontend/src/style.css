@@ -1,36 +1,45 @@
 @import "tailwindcss";
 
+/* Shared semantic tokens. Dark is the default; a saved light preference is retained. */
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color-scheme: light;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color-scheme: dark;
   color: var(--content);
   background: var(--canvas);
   font-synthesis: none;
-  --canvas: #f5f5f7;
-  --panel: #ffffff;
-  --surface-secondary: #fafafa;
-  --sidebar: #ebebef;
-  --content: #1d1d1f;
-  --muted: #6e6e73;
-  --accent: #0071e3;
-  --action: #0071e3;
-  --action-content: #ffffff;
-  --selection: #e9e9ed;
-  --hover: #f0f0f3;
-  --line: #e0e0e5;
-  --control-line: #8a8a90;
-  --success: #287348;
-  --success-soft: #edf6ef;
-  --warning: #795100;
-  --warning-soft: #fff8e8;
-  --danger: #b32635;
-  --danger-soft: #fff0f0;
-  --video: #111113;
-  --toolbar: #f9f9fb;
-  --layer-shadow: 0 16px 64px #00000026, 0 2px 8px #0000000a;
+  -webkit-font-smoothing: antialiased;
+  --canvas: #0d0f12;
+  --panel: #14171c;
+  --surface-secondary: #171a1f;
+  --sidebar: #101216;
+  --content: #f2f4f7;
+  --secondary: #a0a6b0;
+  --muted: #939ba8;
+  --faint: #737b87;
+  --accent: #8cb5ff;
+  --action: #79a9ff;
+  --action-content: #101b30;
+  --selection: #20252e;
+  --hover: #1b1f26;
+  --line: #262b33;
+  --control-line: #454e5d;
+  --success: #87c9a8;
+  --success-soft: #182a23;
+  --warning: #d9b77d;
+  --warning-soft: #2b251b;
+  --danger: #ec919b;
+  --danger-soft: #342126;
+  --video: #090b0e;
+  --toolbar: #0d0f12;
+  --layer-shadow: 0 16px 64px #00000060;
   --radius-control: 7px;
   --radius-group: 10px;
-  --navigation-width: 224px;
+  --navigation-width: 208px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -39,51 +48,31 @@
   --space-8: 32px;
   --space-12: 48px;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-appearance="light"]) {
-    color-scheme: dark;
-    --canvas: #161617;
-    --panel: #1c1c1e;
-    --surface-secondary: #202022;
-    --sidebar: #202022;
-    --content: #f5f5f7;
-    --muted: #a1a1a6;
-    --accent: #64a8ff;
-    --selection: #343438;
-    --hover: #2c2c30;
-    --line: #3a3a3e;
-    --control-line: #77777e;
-    --success: #85cda0;
-    --success-soft: #20392a;
-    --warning: #e8c87e;
-    --warning-soft: #352e20;
-    --danger: #ffa5ac;
-    --danger-soft: #3c2529;
-    --toolbar: #1d1d1f;
-    --layer-shadow: 0 16px 64px #00000060, 0 1px 6px #00000030;
-  }
-}
-:root[data-appearance="dark"] {
-  color-scheme: dark;
-  --canvas: #161617;
-  --panel: #1c1c1e;
-  --surface-secondary: #202022;
-  --sidebar: #202022;
-  --content: #f5f5f7;
-  --muted: #a1a1a6;
-  --accent: #64a8ff;
-  --selection: #343438;
-  --hover: #2c2c30;
-  --line: #3a3a3e;
-  --control-line: #77777e;
-  --success: #85cda0;
-  --success-soft: #20392a;
-  --warning: #e8c87e;
-  --warning-soft: #352e20;
-  --danger: #ffa5ac;
-  --danger-soft: #3c2529;
-  --toolbar: #1d1d1f;
-  --layer-shadow: 0 16px 64px #00000060, 0 1px 6px #00000030;
+:root[data-appearance="light"] {
+  color-scheme: light;
+  --canvas: #f6f7f9;
+  --panel: #ffffff;
+  --surface-secondary: #f0f2f5;
+  --sidebar: #edeff3;
+  --content: #202631;
+  --secondary: #586270;
+  --muted: #616b79;
+  --faint: #697383;
+  --accent: #285ba9;
+  --action: #356dc9;
+  --action-content: #ffffff;
+  --selection: #e1e7f0;
+  --hover: #e9edf3;
+  --line: #dce1e8;
+  --control-line: #87909d;
+  --success: #287348;
+  --success-soft: #eaf4ed;
+  --warning: #795100;
+  --warning-soft: #faf2e5;
+  --danger: #b32635;
+  --danger-soft: #fceef0;
+  --toolbar: #f6f7f9;
+  --layer-shadow: 0 16px 64px #00000020;
 }
 * {
   box-sizing: border-box;

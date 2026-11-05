@@ -1,4 +1,5 @@
 import { initials } from "../lib/api";
+import { useState } from "react";
 import type { Player } from "../types";
 export function Sparkline({
   values,
@@ -33,15 +34,39 @@ export function Sparkline({
 export function Avatar({
   player,
   small = false,
+  large = false,
 }: {
   player: Player;
   small?: boolean;
+  large?: boolean;
 }) {
+  const [failedSource, setFailedSource] = useState("");
+  const nbaId = String(player.nba_id ?? "");
+  const sleeperId = String(player.external_id ?? "");
+  const source =
+    player.is_demo === false && !player.film_only
+      ? /^\d+$/.test(nbaId)
+        ? `https://cdn.nba.com/headshots/nba/latest/260x190/${nbaId}.png`
+        : /^\d+$/.test(sleeperId) && player.source.includes("Sleeper")
+          ? `https://sleepercdn.com/content/nba/players/${sleeperId}.jpg`
+          : ""
+      : "";
   return (
     <span
-      className={`avatar ${small ? "small" : ""} tone-${player.id.slice(-1)}`}
+      className={`avatar ${small ? "small" : ""} ${large ? "large" : ""}`}
+      aria-hidden="true"
     >
-      {initials(player.name)}
+      {source && source !== failedSource ? (
+        <img
+          src={source}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedSource(source)}
+        />
+      ) : (
+        initials(player.name)
+      )}
     </span>
   );
 }

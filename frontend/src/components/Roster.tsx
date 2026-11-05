@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LockKeyhole, Search, X } from "lucide-react";
 import type { Bootstrap } from "../types";
-import { Sparkline } from "./Player";
+import { Avatar, Sparkline } from "./Player";
 import { InfoTooltip } from "./InfoTooltip";
 
 export function Roster({
@@ -187,6 +187,7 @@ export function Roster({
               <tr key={p.id}>
                 <td>
                   <div className="table-player">
+                    <Avatar player={p} small />
                     <span>
                       <b>{p.name}</b>
                       <small>{p.team}</small>

@@ -197,9 +197,9 @@ describe("guided scouting workflow", () => {
     const progress = await screen.findByRole("progressbar", {
       name: "Scouting progress",
     });
-    await waitFor(() =>
-      expect(progress).toHaveAttribute("aria-valuenow", "45"),
-    );
+    expect(progress).toHaveAttribute("aria-valuetext", "Check film");
+    expect(progress).not.toHaveAttribute("aria-valuenow");
+    expect(screen.queryByText("45%")).not.toBeInTheDocument();
     expect(screen.getByText("Check film").closest("li")).toHaveAttribute(
       "aria-current",
       "step",

@@ -11,10 +11,7 @@ export function useAppearance() {
     } catch {
       // Appearance still works when browser storage is unavailable.
     }
-    return typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return "dark";
   });
   useEffect(() => {
     document.documentElement.dataset.appearance = appearance;
